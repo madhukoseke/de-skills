@@ -85,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Trust Boundary section in SKILL.md to mitigate indirect prompt injection (W011) when processing PR diffs, DAG code, or external links
 - Security Considerations in SECURITY.md documenting untrusted content handling
+- Reinforced W011 guardrails in `playbooks/02_airflow_reliability.md` (trust boundary callout at DAG review checklist entry point)
+- Reinforced W011 guardrails in `playbooks/03_pr_review_checklist.md` (trust boundary callout at PR ingestion entry point)
 
 ## [2.0.0] - 2026-03-01
 
