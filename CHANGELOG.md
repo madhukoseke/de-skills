@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- (Nothing yet)
+- Trust Boundary section in SKILL.md to mitigate indirect prompt injection (W011) when processing PR diffs, DAG code, or external links
+- Security Considerations in SECURITY.md documenting untrusted content handling
 
 ## [1.0.0] - 2026-02-25
 
