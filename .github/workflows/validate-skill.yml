@@ -1,0 +1,55 @@
+name: Validate Skill
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: skills/data-engineering-best-practices
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          SKILL_FILE="SKILL.md"
+          if ! grep -q "^name:" "$SKILL_FILE"; then
+            echo "::error::SKILL.md missing required 'name' in frontmatter"
+            exit 1
+          fi
+          if ! grep -q "^description:" "$SKILL_FILE"; then
+            echo "::error::SKILL.md missing required 'description' in frontmatter"
+            exit 1
+          fi
+          echo "Frontmatter validation passed"
+
+      - name: Validate playbook files exist
+        run: |
+          for f in playbooks/01_pipeline_design.md playbooks/02_bigquery_modeling_cost.md \
+            playbooks/03_airflow_reliability.md playbooks/04_streaming_pubsub.md \
+            playbooks/05_pr_review_checklist.md; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing file: $f"
+              exit 1
+            fi
+          done
+          echo "Playbook files validation passed"
+
+      - name: Validate template files exist
+        run: |
+          for f in templates/data_contract.yaml templates/airflow_dag_review.md \
+            templates/runbook.md templates/incident_postmortem.md; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing file: $f"
+              exit 1
+            fi
+          done
+          echo "Template files validation passed"
+

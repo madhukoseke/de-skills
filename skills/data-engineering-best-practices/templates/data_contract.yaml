@@ -1,0 +1,116 @@
+# Data Contract Template
+# Fill in all fields. Delete comments before committing.
+# Referenced by: DESIGN, BQ_MODEL, PR_REVIEW modes
+
+schema_version: "1.0"
+
+# === Contract Metadata ===
+contract:
+  name: ""                          # e.g., "orders_events_v2"
+  description: ""                   # Human-readable purpose of this dataset
+  owner:
+    team: ""                        # Owning team name
+    slack_channel: ""               # e.g., "#data-eng-alerts"
+    oncall_rotation: ""             # e.g., "de-oncall@yourcompany.com"
+  version: "1.0.0"                  # Semantic versioning: MAJOR.MINOR.PATCH
+  status: "draft"                   # draft | active | deprecated | retired
+  created_date: ""                  # YYYY-MM-DD
+  last_updated: ""                  # YYYY-MM-DD
+
+# === Source ===
+source:
+  system: ""                        # e.g., "salesforce", "postgres_orders_db", "pub/sub"
+  type: ""                          # api | database | file | event_stream
+  connection: ""                    # Connection identifier (not credentials)
+  extraction_method: ""             # full_refresh | incremental | cdc | streaming
+  refresh_frequency: ""             # e.g., "daily 06:00 UTC", "every 5 minutes", "real-time"
+
+# === Destination ===
+destination:
+  project: ""                       # GCP project ID
+  dataset: ""                       # BigQuery dataset name
+  table: ""                         # BigQuery table name
+  layer: ""                         # raw | staging | curated | mart
+  format: ""                        # bigquery_native | parquet | avro | json
+
+# === Schema Definition ===
+schema:
+  fields:
+    - name: ""                      # Column name (snake_case)
+      type: ""                      # STRING | INT64 | FLOAT64 | BOOL | TIMESTAMP | DATE | RECORD | ARRAY
+      mode: "NULLABLE"              # NULLABLE | REQUIRED | REPEATED
+      description: ""               # Human-readable description
+      pii: false                    # true if column contains PII (triggers masking/encryption rules)
+      pii_category: ""              # email | phone | name | address | ssn | financial | health | none
+      business_key: false           # true if this is a natural/business key
+      example: ""                   # Example value for documentation
+
+    # Copy the block above for each field. Example:
+    # - name: "customer_id"
+    #   type: "STRING"
+    #   mode: "REQUIRED"
+    #   description: "Unique customer identifier from source system"
+    #   pii: false
+    #   pii_category: "none"
+    #   business_key: true
+    #   example: "CUST-123456"
+
+  primary_key: []                   # List of columns forming the primary/business key
+  partition_column: ""              # Column used for BigQuery partitioning
+  partition_type: ""                # DAY | HOUR | MONTH | YEAR | INTEGER_RANGE
+  cluster_columns: []               # Up to 4 columns, most-filtered-first order
+
+# === Quality Rules ===
+quality:
+  freshness:
+    max_delay: ""                   # e.g., "2 hours", "30 minutes"
+    check_column: ""                # Column to check for freshness (e.g., "loaded_at")
+  completeness:
+    required_columns: []            # Columns that must never be NULL
+    min_row_count: 0                # Minimum expected rows per load (0 = no check)
+  uniqueness:
+    unique_keys: []                 # Column combinations that must be unique
+  custom_rules:
+    - name: ""                      # Rule name
+      sql: ""                       # SQL expression that must return 0 rows to pass
+      severity: "error"             # error | warning
+      description: ""               # What this rule checks
+
+# === SLA ===
+sla:
+  availability: ""                  # e.g., "99.9%"
+  freshness_sla: ""                 # e.g., "Data available by 08:00 UTC daily"
+  support_hours: ""                 # e.g., "24/7" or "business hours US-Pacific"
+  incident_response: ""             # e.g., "P1: 15min, P2: 1hr, P3: 4hr"
+
+# === Change Management ===
+change_management:
+  breaking_change_notice_days: 30   # Days of notice required before breaking changes
+  breaking_changes:                 # What constitutes a breaking change:
+    - "Removing or renaming a field"
+    - "Changing a field type"
+    - "Changing partition or cluster columns"
+    - "Changing primary key columns"
+    - "Reducing data retention"
+  change_log:
+    - version: "1.0.0"
+      date: ""                      # YYYY-MM-DD
+      author: ""
+      description: "Initial contract"
+      breaking: false
+
+# === Access & Security ===
+access:
+  classification: ""                # public | internal | confidential | restricted
+  authorized_readers: []            # List of GCP groups/service accounts with read access
+  authorized_writers: []            # List of GCP groups/service accounts with write access
+  row_level_security: false         # Whether row-level access control is applied
+  column_level_security: false      # Whether column-level masking is applied
+  pii_handling: ""                  # masked | encrypted | tokenized | none
+
+# === Downstream Dependencies ===
+consumers:
+  - name: ""                        # Consumer name
+    team: ""                        # Consumer team
+    usage: ""                       # How they use this data
+    sla_dependency: false           # Whether they depend on this data's SLA
