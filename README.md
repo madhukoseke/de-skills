@@ -1,6 +1,6 @@
 # Data Engineering Best Practices — Claude Code Skill
 
-A production-grade Claude Code skill that acts as a senior data engineering architect, reviewer, and playbook for the Google Cloud stack (BigQuery, Airflow/Composer, Pub/Sub, Dataflow).
+A production-grade Claude Code skill that acts as a senior data engineering architect, reviewer, and playbook for the Google Cloud stack (BigQuery, Airflow/Composer, Pub/Sub, Dataflow, dbt/DataForm, Dataplex).
 
 ## Install
 
@@ -14,7 +14,7 @@ npx skills add madhukoseke/de-skills --skill data-engineering-best-practices
 
 ## What It Does
 
-When triggered, the skill operates in one of five modes based on your request:
+When triggered, the skill operates in one of nine modes based on your request:
 
 | Mode | Trigger Examples | Output |
 |------|-----------------|--------|
@@ -23,6 +23,10 @@ When triggered, the skill operates in one of five modes based on your request:
 | **AIRFLOW** | "Review this DAG for reliability issues" | Structured audit + code fixes + review template |
 | **STREAMING** | "Architect a real-time pipeline with Pub/Sub" | Streaming architecture + capacity plan |
 | **PR_REVIEW** | "Review this PR that adds a BQ load task" | Review table + risk assessment + verdict |
+| **DBT** | "Create/review a dbt model and tests" | dbt model SQL + test strategy + review template |
+| **DATA_QUALITY** | "Design DQ checks and reporting" | DQ rule set + checks + DQ report template |
+| **DIAGNOSE** | "Pipeline failing, help debug" | Triage + root cause analysis + remediation |
+| **COST_AUDIT** | "Audit BigQuery spend" | Ranked cost drivers + optimization plan |
 
 ## Principles
 
@@ -47,12 +51,17 @@ skills/data-engineering-best-practices/
 │   ├── 02_bigquery_modeling_cost.md  # Partition/cluster strategy, cost formulas, DDL
 │   ├── 03_airflow_reliability.md     # Retries, idempotency, sensors, backfill
 │   ├── 04_streaming_pubsub.md        # Pub/Sub patterns, exactly-once, Dataflow
-│   └── 05_pr_review_checklist.md     # Structured PR review checklist
+│   ├── 05_pr_review_checklist.md     # Structured PR review checklist
+│   ├── 06_dbt_patterns.md            # dbt model/materialization/testing patterns
+│   ├── 07_data_quality.md            # DQ framework and implementation patterns
+│   └── 08_environments_and_iac.md    # Multi-env and Terraform playbook
 └── templates/
     ├── data_contract.yaml            # Annotated data contract template
     ├── airflow_dag_review.md         # DAG review output template
     ├── runbook.md                    # Operational runbook template
-    └── incident_postmortem.md        # Postmortem with 5 Whys framework
+    ├── incident_postmortem.md        # Postmortem with 5 Whys framework
+    ├── dbt_model_review.md           # dbt model review template
+    └── data_quality_report.md        # Data quality reporting template
 ```
 
 ## Playbooks
@@ -64,6 +73,9 @@ skills/data-engineering-best-practices/
 | [Airflow Reliability](skills/data-engineering-best-practices/playbooks/03_airflow_reliability.md) | Retry strategy with code, idempotency patterns, sensor best practices, backfill guidance |
 | [Streaming & Pub/Sub](skills/data-engineering-best-practices/playbooks/04_streaming_pubsub.md) | Topic design, subscription patterns, dead-letter, Dataflow windowing, exactly-once |
 | [PR Review Checklist](skills/data-engineering-best-practices/playbooks/05_pr_review_checklist.md) | Structured review table, BQ/Airflow/streaming items, risk assessment matrix |
+| [dbt Patterns](skills/data-engineering-best-practices/playbooks/06_dbt_patterns.md) | dbt model structure, materializations, tests, dbt+Airflow integration |
+| [Data Quality](skills/data-engineering-best-practices/playbooks/07_data_quality.md) | DQ taxonomy, SQL assertions, dbt tests, anomaly detection, quarantine |
+| [Environments & IaC](skills/data-engineering-best-practices/playbooks/08_environments_and_iac.md) | Multi-environment strategy, Terraform modules, CI/CD patterns |
 
 ## Templates
 
@@ -73,6 +85,8 @@ skills/data-engineering-best-practices/
 | [DAG Review](skills/data-engineering-best-practices/templates/airflow_dag_review.md) | AIRFLOW, PR_REVIEW |
 | [Runbook](skills/data-engineering-best-practices/templates/runbook.md) | DESIGN, AIRFLOW, STREAMING |
 | [Incident Postmortem](skills/data-engineering-best-practices/templates/incident_postmortem.md) | All modes (failure investigation) |
+| [dbt Model Review](skills/data-engineering-best-practices/templates/dbt_model_review.md) | DBT, PR_REVIEW |
+| [Data Quality Report](skills/data-engineering-best-practices/templates/data_quality_report.md) | DATA_QUALITY, PR_REVIEW, DIAGNOSE |
 
 ## Contributing
 

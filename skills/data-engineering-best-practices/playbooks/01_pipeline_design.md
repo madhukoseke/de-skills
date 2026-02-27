@@ -5,6 +5,7 @@ tags: [pipeline-design, batch, streaming, hybrid, architecture]
 related_templates:
   - ../templates/data_contract.yaml
   - ../templates/runbook.md
+  - ../templates/incident_postmortem.md
 ---
 
 # Pipeline Design Playbook
@@ -354,6 +355,57 @@ WHERE drift_pct > 0.001  -- Alert on > 0.1% drift
 3. Use BQ on-demand until monthly spend exceeds flat-rate break-even (~$10K/mo for 500 slots).
 4. Archive raw data to GCS Coldline after 90 days. Use BQ external tables if ad-hoc access is needed.
 5. Set Pub/Sub message retention to the minimum acceptable replay window (default 7 days, max 31).
+
+---
+
+## 10. GCP-Native Tool Selection Guide
+
+This section covers newer and specialist GCP tools that complement the core stack (BQ + Composer + Pub/Sub + Dataflow).
+
+### DataForm vs dbt
+
+| Criteria | dbt Core + Composer | DataForm |
+|---|---|---|
+| Infrastructure | You manage the runtime | Fully managed by GCP |
+| Orchestration | Airflow | Built-in Dataform schedules |
+| Lineage | dbt docs (manual setup) | Native Dataplex integration |
+| Testing | Schema YAML tests | SQLX `assertions {}` blocks |
+| Best for | Teams already on Airflow | Greenfield GCP-native teams |
+
+Use DataForm when: greenfield project, team has no Airflow experience, and you want native Dataplex lineage without additional tooling.
+Use dbt when: team already operates Composer, or you need rich open-source plugin ecosystem.
+
+### Dataplex for Governance
+
+Attach Dataplex to every new data domain:
+
+```
+Dataplex Lake (domain: "sales")
+  ├── Raw Zone     → attaches raw_salesforce BQ dataset + gs://raw/salesforce/ GCS bucket
+  ├── Curated Zone → attaches cur_sales BQ dataset
+  └── Mart Zone    → attaches mart_revenue BQ dataset
+```
+
+Dataplex provides:
+- Unified data catalog across BQ + GCS + external sources
+- Automated data profiling (row counts, null rates, cardinality)
+- DQ scans without writing assertion SQL (see playbook 07)
+- Column-level lineage for BQ jobs and DataForm executions
+- Policy enforcement (data classification, access controls)
+
+**Set up Dataplex assets before the pipeline goes to production, not as an afterthought.**
+
+### Vertex AI Pipelines vs Airflow for ML Workflows
+
+| Scenario | Use Airflow (Composer) | Use Vertex AI Pipelines |
+|---|---|---|
+| ML training is one step in a larger DE pipeline | Yes | No |
+| Workflow is purely ML (data prep → train → evaluate → deploy) | No | Yes |
+| Team is primarily data engineers | Yes | Maybe |
+| Team is primarily ML engineers | Maybe | Yes |
+| Need BQ feature store integration | Both work | Native integration |
+
+**Do not mix:** If you have a Composer DAG that orchestrates DE steps and ML steps, split it. ML steps live in Vertex AI Pipelines (called from a Composer task via `VertexAIPipelineJobTrigger`).
 
 ---
 

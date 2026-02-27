@@ -389,6 +389,230 @@ Is the aggregation supported by MV syntax?
 
 ---
 
+## 10. BigLake: External Tables with Fine-Grained Access
+
+BigLake bridges BigQuery's security model onto external data in GCS, S3, or Azure Blob — without copying data into BQ.
+
+### When to Use BigLake
+
+- Data lives in GCS (Parquet, ORC, Avro) but you need BQ column-level security on it.
+- You have cross-cloud data (AWS S3, Azure Blob) and need to query it from BigQuery.
+- You want to apply row/column access policies without running a BQ load job.
+- You are building an open table format lakehouse (Iceberg / Hudi / Delta) and need BQ as a query engine.
+
+### BigLake Table DDL
+
+```sql
+-- External table backed by GCS Parquet files, with BQ column-level access
+CREATE OR REPLACE EXTERNAL TABLE `project.dataset.orders_biglake`
+WITH CONNECTION `us.my-biglake-connection`
+OPTIONS (
+  format = 'PARQUET',
+  uris = ['gs://my-bucket/orders/year=*/month=*/day=*/*.parquet'],
+  hive_partition_uri_prefix = 'gs://my-bucket/orders/',
+  require_hive_partition_filter = TRUE
+);
+```
+
+### BigLake vs BQ Native Table: Decision
+
+| Factor | BQ Native Table | BigLake External Table |
+|---|---|---|
+| Query performance | Best | ~2-3x slower (no BQ storage optimization) |
+| Storage cost | BQ pricing ($0.02/GB active) | Only GCS cost ($0.02/GB standard) |
+| Column-level security | Yes | Yes (key advantage of BigLake over plain external tables) |
+| Streaming inserts | Yes | No |
+| Materialized views | Yes | No |
+| Best for | High-frequency queries, streaming | Archive, infrequent access, cross-cloud federation |
+
+### BigLake + Iceberg (Open Table Format)
+
+For teams building a lakehouse with open table formats:
+
+```sql
+-- Create a managed Iceberg table via BigLake
+CREATE TABLE `project.dataset.orders_iceberg`
+(
+  order_id STRING NOT NULL,
+  customer_id STRING NOT NULL,
+  order_date DATE NOT NULL,
+  total_amount NUMERIC
+)
+CLUSTER BY customer_id
+WITH CONNECTION `us.my-biglake-connection`
+OPTIONS (
+  file_format = 'PARQUET',
+  table_format = 'ICEBERG',
+  storage_uri = 'gs://my-bucket/iceberg/orders/'
+);
+```
+
+---
+
+## 11. Dataplex: Data Governance and Lineage
+
+Dataplex is GCP's unified data governance service. Use it for data cataloging, lineage tracking, data quality at scale, and cross-project metadata management.
+
+### Dataplex Concepts
+
+| Concept | Description | Analogous To |
+|---|---|---|
+| **Lake** | Top-level organizational unit for a data domain | A data domain (e.g., "Sales", "Finance") |
+| **Zone** | Logical grouping within a lake (raw, curated) | A BQ dataset or GCS prefix tier |
+| **Asset** | An actual GCS bucket or BQ dataset attached to a zone | The actual data resource |
+| **Data Scan** | Automated data quality and profiling job | Great Expectations checkpoint |
+| **Entry** | A cataloged metadata record for a table, file, or dataset | Dataplex catalog entry |
+
+### Setting Up a Dataplex Lake via Terraform
+
+```hcl
+resource "google_dataplex_lake" "sales_lake" {
+  name     = "sales-lake"
+  location = "us-central1"
+  project  = var.project_id
+
+  metastore {
+    service = "projects/${var.project_id}/locations/us-central1/services/my-metastore"
+  }
+
+  labels = {
+    environment = var.environment
+    domain      = "sales"
+  }
+}
+
+resource "google_dataplex_zone" "raw_zone" {
+  name         = "raw-zone"
+  lake         = google_dataplex_lake.sales_lake.name
+  location     = "us-central1"
+  project      = var.project_id
+  type         = "RAW"
+
+  resource_spec {
+    location_type = "SINGLE_REGION"
+  }
+}
+
+resource "google_dataplex_zone" "curated_zone" {
+  name         = "curated-zone"
+  lake         = google_dataplex_lake.sales_lake.name
+  location     = "us-central1"
+  project      = var.project_id
+  type         = "CURATED"
+
+  resource_spec {
+    location_type = "SINGLE_REGION"
+  }
+}
+
+resource "google_dataplex_asset" "orders_dataset" {
+  name          = "orders-bq-asset"
+  lake          = google_dataplex_lake.sales_lake.name
+  dataplex_zone = google_dataplex_zone.curated_zone.name
+  location      = "us-central1"
+  project       = var.project_id
+
+  resource_spec {
+    name = "projects/${var.project_id}/datasets/mart_sales"
+    type = "BIGQUERY_DATASET"
+  }
+}
+```
+
+### Dataplex Data Quality Scans
+
+Run automated DQ scans on BQ tables without writing custom SQL:
+
+```hcl
+resource "google_dataplex_datascan" "orders_dq_scan" {
+  location = "us-central1"
+  project  = var.project_id
+  data_scan_id = "orders-dq-scan"
+
+  data {
+    resource = "//bigquery.googleapis.com/projects/${var.project_id}/datasets/mart_sales/tables/fact_orders"
+  }
+
+  execution_spec {
+    trigger {
+      schedule {
+        cron = "0 7 * * *"  # daily at 7am UTC
+      }
+    }
+  }
+
+  data_quality_spec {
+    rules {
+      column    = "order_id"
+      dimension = "UNIQUENESS"
+      non_null_expectation {}
+    }
+    rules {
+      column    = "order_id"
+      dimension = "UNIQUENESS"
+      uniqueness_expectation {}
+    }
+    rules {
+      column    = "total_amount"
+      dimension = "VALIDITY"
+      range_expectation {
+        min_value       = "0"
+        strict_min_enabled = true
+      }
+    }
+    rules {
+      dimension = "FRESHNESS"
+      table_condition_expectation {
+        sql_expression = "MAX(loaded_at) > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR)"
+      }
+    }
+  }
+}
+```
+
+### Lineage Tracking
+
+Dataplex automatically captures lineage for:
+- BigQuery jobs (queries, scheduled queries)
+- DataForm executions
+- dbt + dbt-dataplex plugin
+
+For custom lineage (Airflow tasks, Cloud Run extractors), emit lineage events via the Lineage API:
+
+```python
+from google.cloud.datacatalog.lineage_v1 import LineageClient, Process, Run, LineageEvent, EventLink, EntityReference
+from datetime import datetime, timezone
+
+def emit_lineage(project_id: str, source_table: str, target_table: str, job_name: str):
+    client = LineageClient()
+
+    process = client.create_process(
+        parent=f"projects/{project_id}/locations/us",
+        process=Process(display_name=job_name),
+    )
+    run = client.create_run(
+        parent=process.name,
+        run=Run(
+            display_name=f"{job_name}-{datetime.now(timezone.utc).date()}",
+            start_time=datetime.now(timezone.utc),
+        ),
+    )
+    client.create_lineage_event(
+        parent=run.name,
+        lineage_event=LineageEvent(
+            links=[
+                EventLink(
+                    source=EntityReference(fully_qualified_name=f"bigquery:{source_table}"),
+                    target=EntityReference(fully_qualified_name=f"bigquery:{target_table}"),
+                )
+            ],
+            start_time=datetime.now(timezone.utc),
+        ),
+    )
+```
+
+---
+
 ## Quick Reference Checklist
 
 Before deploying any BigQuery table to production:

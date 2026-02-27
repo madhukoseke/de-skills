@@ -34,7 +34,8 @@ jobs:
         run: |
           for f in playbooks/01_pipeline_design.md playbooks/02_bigquery_modeling_cost.md \
             playbooks/03_airflow_reliability.md playbooks/04_streaming_pubsub.md \
-            playbooks/05_pr_review_checklist.md; do
+            playbooks/05_pr_review_checklist.md playbooks/06_dbt_patterns.md \
+            playbooks/07_data_quality.md playbooks/08_environments_and_iac.md; do
             if [ ! -f "$f" ]; then
               echo "::error::Missing file: $f"
               exit 1
@@ -45,7 +46,8 @@ jobs:
       - name: Validate template files exist
         run: |
           for f in templates/data_contract.yaml templates/airflow_dag_review.md \
-            templates/runbook.md templates/incident_postmortem.md; do
+            templates/runbook.md templates/incident_postmortem.md \
+            templates/dbt_model_review.md templates/data_quality_report.md; do
             if [ ! -f "$f" ]; then
               echo "::error::Missing file: $f"
               exit 1
@@ -53,3 +55,6 @@ jobs:
           done
           echo "Template files validation passed"
 
+      - name: Validate E2E harness
+        run: |
+          ../../tests/run_e2e_harness.sh

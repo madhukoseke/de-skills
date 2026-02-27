@@ -4,6 +4,8 @@ description: "Structured checklist for reviewing data engineering pull requests"
 tags: [pr-review, code-review, checklist, quality]
 related_templates:
   - ../templates/airflow_dag_review.md
+  - ../templates/data_contract.yaml
+  - ../templates/runbook.md
 ---
 
 # PR Review Checklist
@@ -99,7 +101,7 @@ After the table, provide a final **Recommendation** (APPROVE, REQUEST_CHANGES, o
 | # | Item | What to Check |
 |---|------|---------------|
 | 3.1 | DAG is idempotent | Re-running the same execution_date produces the same result without side effects |
-| 3.2 | Retry configuration is set | `retries >= 2`, `retry_delay` is reasonable (not 0 seconds), `retry_exponential_backoff=True` for external calls |
+| 3.2 | Retry configuration is set | `retries >= 3`, `retry_delay` is reasonable (not 0 seconds), `retry_exponential_backoff=True` for external calls |
 | 3.3 | No business logic in DAG file | DAG file only defines structure. Logic lives in operators, hooks, or imported modules. |
 | 3.4 | Dates use Airflow templates | Uses `{{ ds }}`, `{{ data_interval_start }}`, not `datetime.now()` or hardcoded dates |
 | 3.5 | Sensor has timeout and poke_interval | `timeout` is set (not infinite), `poke_interval` is reasonable, `mode="reschedule"` for long waits |
@@ -136,10 +138,47 @@ After the table, provide a final **Recommendation** (APPROVE, REQUEST_CHANGES, o
 | 5.4 | Breaking change notice issued | If the contract changes in a non-additive way, downstream consumers are notified before merge |
 | 5.5 | Data quality checks defined | Contract includes expectations (not-null, accepted values, uniqueness) enforced in pipeline |
 | 5.6 | Ownership is current | `owner` field in the contract matches a real, active team or individual |
+| 5.7 | Lineage documented | Source tables and output tables are declared; column-level lineage for PII-adjacent fields |
 
 ---
 
-## 6. Risk Assessment Matrix
+## 6. Security Items
+
+> Reference: Principle 9 (Lineage is not optional) and Principle 10 (Environments must be code-identical).
+
+| # | Item | What to Check |
+|---|------|---------------|
+| 6.1 | No credentials or secrets in code | No API keys, passwords, or tokens in DAG files, SQL, config files, or environment variables in plain text. Must use Secret Manager or Airflow Connections. |
+| 6.2 | Service account follows least privilege | The SA used by this pipeline has only the roles it needs. No `roles/owner`, `roles/editor`, or `roles/bigquery.admin`. |
+| 6.3 | PII columns are masked or encrypted | Any column tagged `pii: true` in the data contract is masked (column-level security), encrypted, or tokenized as required by policy. |
+| 6.4 | New BQ datasets have IAM configured | `authorized_readers` and `authorized_writers` are explicitly set. No public datasets unless intentional and documented. |
+| 6.5 | Row-level security applied if required | Tables with multi-tenant or per-team data have BigQuery row access policies or authorized views. |
+| 6.6 | Audit logging enabled | Cloud Audit Logs (DATA_READ, DATA_WRITE) are active on any new BQ dataset containing sensitive data. |
+| 6.7 | No cross-environment data access | Dev/staging pipelines do not reference production BQ tables or GCS buckets. Environments are isolated. |
+| 6.8 | VPC Service Controls not bypassed | Changes that introduce new egress paths (e.g., Cloud Run calling external APIs, new Pub/Sub push endpoints) are reviewed for VPC SC compatibility. |
+| 6.9 | DLP scan triggered for new raw tables | If the table ingests data from a new source, a Cloud DLP inspection job is scheduled or has been completed to classify PII. |
+| 6.10 | No long-lived SA keys introduced | New service accounts authenticate via Workload Identity Federation or Application Default Credentials. No JSON key files committed or mounted as secrets unless documented exception. |
+
+---
+
+## 7. Cost Items
+
+> Reference: Principle 5 (Cost is a feature).
+
+| # | Item | What to Check |
+|---|------|---------------|
+| 7.1 | BQ dry-run completed for new/changed queries | Author ran `bq query --dry_run` and documented estimated bytes scanned. Any query scanning > 1 TB must be justified. |
+| 7.2 | No `SELECT *` in scheduled or materialized queries | Full column selection on wide tables inflates cost by 5-20x. All production queries must list explicit columns. |
+| 7.3 | New tables have `require_partition_filter = TRUE` if > 10 GB | Prevents accidental full scans. Must be set on all large tables. |
+| 7.4 | New Dataflow jobs have `--maxNumWorkers` set | Unbounded autoscaling is a billing incident. Every Dataflow job must cap workers. |
+| 7.5 | Storage costs accounted for | New tables have `partition_expiration_days` set if they do not need indefinite retention. Temp/staging tables have expiration. |
+| 7.6 | Labels added for cost attribution | New BQ tables, Dataflow jobs, and Cloud Run services have `team`, `pipeline`, and `environment` labels. |
+| 7.7 | Materialized view vs scheduled query evaluated | If a new scheduled query runs more than hourly or on a large table, the author has considered whether a materialized view would be cheaper. |
+| 7.8 | On-demand vs slot reservation evaluated for large queries | Queries projected to scan > 100 TB/month should be evaluated for slot reservation. |
+
+---
+
+## 8. Risk Assessment Matrix
 
 Rate every PR on these four dimensions to determine overall risk:
 
@@ -169,7 +208,7 @@ Include the risk score in your review summary:
 
 ---
 
-## 7. Approval Recommendation
+## 9. Approval Recommendation
 
 After completing the relevant checklist sections, issue one of the following:
 
@@ -206,5 +245,7 @@ For any DE pull request to be merged, it must at minimum:
 3. Include a risk assessment score.
 4. Have the required number of approvals based on risk level.
 5. Have a PR description that explains the change and its motivation.
+6. Have no FAIL items in the Security section (items 6.1-6.10).
+7. Have BQ dry-run results documented if the PR touches SQL queries (item 7.1).
 
 No exceptions. If the CI pipeline does not enforce these, the reviewer must.

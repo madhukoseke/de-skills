@@ -41,7 +41,7 @@ schema:
       mode: "NULLABLE"              # NULLABLE | REQUIRED | REPEATED
       description: ""               # Human-readable description
       pii: false                    # true if column contains PII (triggers masking/encryption rules)
-      pii_category: ""              # email | phone | name | address | ssn | financial | health | none
+      pii_category: "none"          # email | phone | name | address | ssn | financial | health | none
       business_key: false           # true if this is a natural/business key
       example: ""                   # Example value for documentation
 

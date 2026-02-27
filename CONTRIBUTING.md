@@ -44,7 +44,17 @@ skills/data-engineering-best-practices/
 ### Templates
 
 - Keep templates self-contained and fillable (placeholders like `{PIPELINE_NAME}`).
+- Markdown templates should include YAML frontmatter (`title`, `description`, `tags`) for consistency.
 - Ensure any new template is referenced from SKILL.md and the relevant playbook(s).
+
+## Test Harness
+
+- E2E behavior checks live under `tests/`.
+- Run full validation before opening a PR:
+
+```bash
+tests/run_e2e_harness.sh
+```
 
 ## Updating References
 

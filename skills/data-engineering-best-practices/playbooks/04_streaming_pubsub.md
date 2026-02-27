@@ -5,6 +5,7 @@ tags: [streaming, pubsub, dataflow, real-time, exactly-once]
 related_templates:
   - ../templates/runbook.md
   - ../templates/data_contract.yaml
+  - ../templates/incident_postmortem.md
 ---
 
 # Streaming & Pub/Sub
@@ -287,7 +288,80 @@ events
 
 ---
 
-## 10. Schema Evolution
+## 10. Kafka as a Source (Hybrid / Multi-Cloud Scenarios)
+
+When Kafka is your upstream event bus (on-premises or Confluent Cloud), bridge it to the GCP DE stack using one of these patterns.
+
+### Pattern A: Kafka → Pub/Sub (Preferred for Full GCP Downstream)
+
+Use the managed Pub/Sub Kafka connector or Dataflow's KafkaIO source. Keeps the downstream stack unchanged.
+
+```java
+// Apache Beam / Dataflow: read from Kafka, write to Pub/Sub
+Pipeline p = Pipeline.create(options);
+
+p.apply("ReadFromKafka", KafkaIO.<Long, String>read()
+    .withBootstrapServers("broker1:9092,broker2:9092")
+    .withTopic("orders")
+    .withKeyDeserializer(LongDeserializer.class)
+    .withValueDeserializer(StringDeserializer.class)
+    .withConsumerConfigUpdates(ImmutableMap.of(
+        "group.id", "gcp-bridge-consumer",
+        "auto.offset.reset", "earliest"
+    ))
+    .withoutMetadata())
+  .apply("ExtractValues", Values.create())
+  .apply("WriteToPubSub", PubsubIO.writeStrings()
+      .to("projects/my-project/topics/prod-orders-created"));
+```
+
+**Key considerations:**
+- Use consumer group offsets, not time-based offsets, for reliable replay.
+- Set `auto.offset.reset = earliest` for the bridge consumer so no messages are missed at startup.
+- Monitor Kafka consumer group lag alongside Pub/Sub backlog.
+
+### Pattern B: Kafka → Dataflow → BigQuery (Direct, Skip Pub/Sub)
+
+Use when Kafka is the system of record and you don't need Pub/Sub fan-out.
+
+```java
+p.apply("ReadFromKafka", KafkaIO.<Long, GenericRecord>read()
+    .withBootstrapServers("broker1:9092")
+    .withTopic("orders")
+    .withValueDeserializer(ConfluentSchemaRegistryDeserializerProvider.of(
+        "http://schema-registry:8081", "orders-value"
+    )))
+  .apply("ParseAndTransform", ParDo.of(new OrderTransformFn()))
+  .apply("WriteToBigQuery", BigQueryIO.<Order>write()
+      .to("my-project:dataset.orders")
+      .withWriteDisposition(BigQueryIO.Write.WriteDisposition.WRITE_APPEND)
+      .withMethod(BigQueryIO.Write.Method.STORAGE_WRITE_API)
+      .withTriggeringFrequency(Duration.standardSeconds(10)));
+```
+
+### Kafka → Pub/Sub via Managed Connector (No Code)
+
+For teams on Confluent Cloud, use the GCP Pub/Sub Sink connector:
+
+```json
+{
+  "name": "pubsub-sink-orders",
+  "config": {
+    "connector.class": "io.confluent.connect.gcp.pubsub.PubSubSinkConnector",
+    "tasks.max": "4",
+    "topics": "orders",
+    "gcp.pubsub.project.id": "my-project",
+    "gcp.pubsub.topic.id": "prod-orders-created",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081"
+  }
+}
+```
+
+---
+
+## 11. Schema Evolution
 
 ### Rules for Safe Evolution
 
