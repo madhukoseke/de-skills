@@ -5,7 +5,7 @@ Store one markdown file per test case ID:
 - `TC-E2E-001.md`
 - `TC-E2E-002.md`
 - ...
-- `TC-E2E-012.md`
+- `TC-E2E-030.md`
 
 Each file should contain the model response captured for that test prompt.
 
@@ -21,7 +21,7 @@ Responses should include these headings:
 
 Optional sections can be present based on case needs:
 
-- `## Cost Estimate`
+- `## Storage/Cost Estimate`
 - `## Template`
 
 ## Run validation

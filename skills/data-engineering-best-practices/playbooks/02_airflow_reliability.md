@@ -1,7 +1,7 @@
 ---
 title: "Airflow Reliability"
 description: "DAG reliability patterns: retries, idempotency, sensors, backfill"
-tags: [airflow, composer, reliability, retries, idempotency]
+tags: [airflow, reliability, retries, idempotency]
 related_templates:
   - ../templates/airflow_dag_review.md
   - ../templates/runbook.md
@@ -9,7 +9,7 @@ related_templates:
 
 # Airflow Reliability Playbook
 
-This playbook codifies production-tested patterns for building reliable Airflow DAGs on Cloud Composer. Every recommendation here ties back to the non-negotiable principles in [SKILL.md](../SKILL.md) — especially **Idempotency first**, **Retry with backoff**, **Fail loud**, and **Separation of concerns**.
+This playbook codifies production-tested patterns for building reliable Airflow DAGs. Every recommendation here ties back to the non-negotiable principles in [SKILL.md](../SKILL.md) — especially **Idempotency first**, **Retry with backoff**, **Fail loud**, and **Separation of concerns**.
 
 ---
 
@@ -17,7 +17,7 @@ This playbook codifies production-tested patterns for building reliable Airflow 
 
 > **Non-negotiable (Principle 6):** All external calls must use exponential backoff with jitter.
 
-Every task that touches an external system (BigQuery, APIs, GCS, databases) must define retries explicitly. Never rely on Airflow's defaults.
+Every task that touches an external system (warehouse, APIs, object storage, databases) must define retries explicitly. Never rely on Airflow's defaults.
 
 ### Standard retry configuration
 
@@ -52,7 +52,7 @@ with DAG(
 
 | Scenario | Override | Reason |
 |----------|----------|--------|
-| Long-running BQ query (>1h) | `execution_timeout=timedelta(hours=4)` | Avoid premature kill |
+| Long-running warehouse query (>1h) | `execution_timeout=timedelta(hours=4)` | Avoid premature kill |
 | Flaky third-party API | `retries=5, retry_delay=timedelta(minutes=5)` | Longer backoff for unstable services |
 | Cheap idempotent check | `retries=1, retry_delay=timedelta(seconds=30)` | Fast feedback, no need for long waits |
 | Non-retryable operation (e.g., sending emails) | `retries=0` | Prevent duplicate side effects |
@@ -74,26 +74,22 @@ A task is idempotent if running it N times with the same inputs produces the sam
 Best for fact tables where you reload an entire partition.
 
 ```python
-from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator
+from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 
-delete_and_insert = BigQueryInsertJobOperator(
+delete_and_insert = SQLExecuteQueryOperator(
     task_id="load_orders_partition",
-    configuration={
-        "query": {
-            "query": """
-                -- Step 1: delete the target partition
-                DELETE FROM `project.dataset.orders`
-                WHERE order_date = '{{ ds }}';
+    conn_id="warehouse_default",
+    sql="""
+        -- Step 1: delete the target partition
+        DELETE FROM orders
+        WHERE order_date = '{{ ds }}';
 
-                -- Step 2: insert fresh data for that date
-                INSERT INTO `project.dataset.orders`
-                SELECT *
-                FROM `project.dataset.orders_staging`
-                WHERE order_date = '{{ ds }}';
-            """,
-            "useLegacySql": False,
-        }
-    },
+        -- Step 2: insert fresh data for that date
+        INSERT INTO orders
+        SELECT *
+        FROM orders_staging
+        WHERE order_date = '{{ ds }}';
+    """,
 )
 ```
 
@@ -104,59 +100,49 @@ delete_and_insert = BigQueryInsertJobOperator(
 Best for slowly-changing dimensions or upsert patterns.
 
 ```python
-merge_customers = BigQueryInsertJobOperator(
+merge_customers = SQLExecuteQueryOperator(
     task_id="merge_customers",
-    configuration={
-        "query": {
-            "query": """
-                MERGE `project.dataset.customers` AS target
-                USING `project.dataset.customers_staging` AS source
-                ON target.customer_id = source.customer_id
-                WHEN MATCHED THEN
-                    UPDATE SET
-                        target.name = source.name,
-                        target.email = source.email,
-                        target.updated_at = source.updated_at
-                WHEN NOT MATCHED THEN
-                    INSERT (customer_id, name, email, created_at, updated_at)
-                    VALUES (source.customer_id, source.name, source.email,
-                            source.created_at, source.updated_at);
-            """,
-            "useLegacySql": False,
-        }
-    },
+    conn_id="warehouse_default",
+    sql="""
+        MERGE INTO customers AS target
+        USING customers_staging AS source
+        ON target.customer_id = source.customer_id
+        WHEN MATCHED THEN
+            UPDATE SET
+                target.name       = source.name,
+                target.email      = source.email,
+                target.updated_at = source.updated_at
+        WHEN NOT MATCHED THEN
+            INSERT (customer_id, name, email, created_at, updated_at)
+            VALUES (source.customer_id, source.name, source.email,
+                    source.created_at, source.updated_at);
+    """,
 )
 ```
 
-### Pattern C: Partition overwrite (BigQuery native)
+### Pattern C: Truncate + Insert (full-partition overwrite)
 
-Use `WRITE_TRUNCATE` disposition against a partition-decorated table.
+Use `TRUNCATE` on a staging/partition table before inserting, ensuring idempotency without MERGE complexity.
 
 ```python
-load_partition = BigQueryInsertJobOperator(
-    task_id="load_events_partition",
-    configuration={
-        "load": {
-            "sourceUris": ["gs://bucket/events/{{ ds }}/*.parquet"],
-            "destinationTable": {
-                "projectId": "my-project",
-                "datasetId": "raw",
-                "tableId": "events${{ ds_nodash }}",
-            },
-            "sourceFormat": "PARQUET",
-            "writeDisposition": "WRITE_TRUNCATE",
-        }
-    },
+truncate_and_load = SQLExecuteQueryOperator(
+    task_id="truncate_and_load_partition",
+    conn_id="warehouse_default",
+    sql="""
+        TRUNCATE TABLE orders_staging;
+
+        INSERT INTO orders_staging
+        SELECT * FROM orders_raw
+        WHERE order_date = '{{ ds }}';
+    """,
 )
 ```
-
-**Key point:** The `${{ ds_nodash }}` partition decorator ensures only that specific partition is overwritten.
 
 ### Anti-pattern: bare INSERT
 
 ```python
 # NEVER DO THIS for dimension or fact loads
-INSERT INTO `project.dataset.orders`
+INSERT INTO orders
 SELECT * FROM staging WHERE order_date = '{{ ds }}';
 ```
 
@@ -166,13 +152,13 @@ If retried, this duplicates data. There is no safe recovery without manual inter
 
 ## 3. Sensor Best Practices
 
-Sensors wait for external conditions. Misconfigured sensors are the number-one cause of Composer worker pool exhaustion.
+Sensors wait for external conditions. Misconfigured sensors are the number-one cause of Airflow worker pool exhaustion.
 
 ### Standard sensor configuration
 
 ```python
 from airflow.sensors.external_task import ExternalTaskSensor
-from airflow.providers.google.cloud.sensors.gcs import GCSObjectExistenceSensor
+from airflow.sensors.filesystem import FileSensor
 
 wait_for_upstream = ExternalTaskSensor(
     task_id="wait_for_upstream_dag",
@@ -185,10 +171,9 @@ wait_for_upstream = ExternalTaskSensor(
     execution_delta=timedelta(hours=1),
 )
 
-wait_for_file = GCSObjectExistenceSensor(
+wait_for_file = FileSensor(
     task_id="wait_for_landing_file",
-    bucket="data-landing",
-    object="orders/{{ ds }}/orders.parquet",
+    filepath="/data/landing/orders/{{ ds }}/orders.parquet",
     poke_interval=300,
     timeout=10800,              # 3 hours
     mode="reschedule",
@@ -209,10 +194,9 @@ wait_for_file = GCSObjectExistenceSensor(
 Set `soft_fail=True` only when downstream tasks can meaningfully proceed without the sensor's condition being met. Common case: optional enrichment data that has a fallback.
 
 ```python
-wait_for_enrichment = GCSObjectExistenceSensor(
+wait_for_enrichment = FileSensor(
     task_id="wait_for_optional_enrichment",
-    bucket="enrichment-data",
-    object="geo/{{ ds }}/geo_lookup.csv",
+    filepath="/data/enrichment/geo/{{ ds }}/geo_lookup.csv",
     poke_interval=600,
     timeout=3600,
     mode="reschedule",
@@ -234,7 +218,7 @@ from airflow.utils.trigger_rule import TriggerRule
 # Run cleanup regardless of upstream success/failure
 cleanup_task = BashOperator(
     task_id="cleanup_temp_files",
-    bash_command="gsutil -m rm -r gs://bucket/tmp/{{ ds }}/",
+    bash_command="rm -rf /tmp/pipeline/{{ ds }}/",
     trigger_rule=TriggerRule.ALL_DONE,  # runs after all upstreams finish
 )
 
@@ -275,8 +259,8 @@ branch = BranchPythonOperator(
     python_callable=choose_load_strategy,
 )
 
-full_load = BigQueryInsertJobOperator(task_id="full_load", ...)
-incremental_load = BigQueryInsertJobOperator(task_id="incremental_load", ...)
+full_load        = SQLExecuteQueryOperator(task_id="full_load", ...)
+incremental_load = SQLExecuteQueryOperator(task_id="incremental_load", ...)
 join = EmptyOperator(task_id="join", trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
 
 branch >> [full_load, incremental_load] >> join
@@ -297,13 +281,13 @@ Every SQL query, file path, and API call in a task must be parameterized with th
 ```python
 # CORRECT: uses Airflow-templated execution date
 query = """
-    SELECT * FROM `project.dataset.events`
+    SELECT * FROM events
     WHERE event_date = '{{ ds }}'
 """
 
 # WRONG: uses wall-clock time, breaks backfill
 query = """
-    SELECT * FROM `project.dataset.events`
+    SELECT * FROM events
     WHERE event_date = CURRENT_DATE()
 """
 ```
@@ -340,7 +324,7 @@ airflow dags backfill \
 **Key flags:**
 - `--reset-dagruns`: Clear existing state for those dates (safe because tasks are idempotent).
 - Never backfill without `--reset-dagruns` unless you know prior runs were clean.
-- Limit parallelism with `--max-active-runs` on the DAG to avoid overwhelming BQ or APIs during large backfills.
+- Limit parallelism with `--max-active-runs` on the DAG to avoid overwhelming the warehouse or APIs during large backfills.
 
 ---
 
@@ -357,7 +341,7 @@ airflow dags backfill \
 | Mega-DAG with 100+ tasks | Slow to parse, hard to debug, blocks scheduler | Split into domain-specific DAGs linked by sensors |
 | Business logic in DAG file | Violates separation of concerns, untestable | Extract to SQL files or Python modules |
 | `depends_on_past=True` globally | Blocks all backfills if one run fails | Use only on specific tasks that truly need it |
-| Storing secrets in DAG code | Security risk, leaks in logs/UI | Use Airflow Connections + Secret Manager backend |
+| Storing secrets in DAG code | Security risk, leaks in logs/UI | Use Airflow Connections + secret backend |
 | `trigger_rule="all_done"` everywhere | Silently proceeds past failures | Use `all_done` only for cleanup tasks |
 | No `execution_timeout` on tasks | Zombie tasks hold resources indefinitely | Set explicit timeout on every task |
 
@@ -365,20 +349,22 @@ airflow dags backfill \
 
 ## 7. Connection and Secret Management
 
-> **Non-negotiable:** Never store credentials in DAG code, environment variables, or GCS files accessible to the DAG.
+> **Non-negotiable:** Never store credentials in DAG code, environment variables, or files accessible to the DAG.
 
-### Use Cloud Composer's Secret Manager backend
+### Use a secret backend
+
+Configure Airflow to pull secrets from a secrets manager (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, etc.):
 
 ```python
-# In Composer environment config (Terraform or Console):
-# AIRFLOW__SECRETS__BACKEND=airflow.providers.google.cloud.secrets.secret_manager.CloudSecretManagerBackend
-# AIRFLOW__SECRETS__BACKEND_KWARGS={"project_id": "my-project", "connections_prefix": "airflow-conn", "variables_prefix": "airflow-var"}
+# airflow.cfg / environment config
+# AIRFLOW__SECRETS__BACKEND=airflow.providers.hashicorp.secrets.vault.VaultBackend
+# AIRFLOW__SECRETS__BACKEND_KWARGS={"connections_path": "airflow/connections", "variables_path": "airflow/variables", "url": "http://vault:8200"}
 
 # In DAG code — just reference the connection ID
 from airflow.hooks.base import BaseHook
 
-conn = BaseHook.get_connection("salesforce_api")
-api_key = conn.password  # pulled from Secret Manager at runtime
+conn     = BaseHook.get_connection("warehouse_prod")
+password = conn.password  # pulled from secrets manager at runtime
 ```
 
 ### Connection naming conventions
@@ -387,18 +373,18 @@ Use a consistent prefix scheme so connections are discoverable:
 
 | Pattern | Example | Contains |
 |---------|---------|----------|
-| `{system}_{environment}` | `bigquery_prod` | Service account JSON or OAuth |
+| `{system}_{environment}` | `warehouse_prod` | Host, user, password |
 | `{system}_api_{name}` | `stripe_api_prod` | API key, base URL |
 | `{db}_{instance}_{env}` | `postgres_orders_prod` | Host, port, user, password |
 
 ### Rotating secrets
 
-Pair Secret Manager with DAG-level connection testing. Add a lightweight connection-check task at the DAG start:
+Pair secret rotation with a lightweight connection-check task at the DAG start:
 
 ```python
 def verify_connections(**context):
     """Fail fast if critical connections are misconfigured."""
-    for conn_id in ["bigquery_prod", "salesforce_api_prod"]:
+    for conn_id in ["warehouse_prod", "source_api_prod"]:
         conn = BaseHook.get_connection(conn_id)
         if not conn:
             raise ValueError(f"Connection {conn_id} not found")
@@ -449,7 +435,7 @@ dags/
 └── common/
     ├── default_args.py             # shared retry config
     ├── callbacks.py                # shared alert callbacks
-    └── constants.py                # project IDs, dataset names
+    └── constants.py                # connection IDs, schema names
 ```
 
 > **Non-negotiable (Principle 8):** SQL stays in SQL files. Python logic stays in Python modules. The DAG file is orchestration glue only.
@@ -461,7 +447,7 @@ Tag every DAG for filtering in the Airflow UI:
 ```python
 with DAG(
     dag_id="orders_daily_load",
-    tags=["orders", "tier-1", "daily", "bigquery"],
+    tags=["orders", "tier-1", "daily", "warehouse"],
     ...
 ) as dag:
 ```
@@ -483,12 +469,12 @@ from airflow.providers.slack.hooks.slack_webhook import SlackWebhookHook
 
 def alert_on_failure(context):
     """Send structured Slack alert on task failure."""
-    task_instance = context["task_instance"]
-    dag_id = context["dag"].dag_id
-    task_id = task_instance.task_id
+    task_instance  = context["task_instance"]
+    dag_id         = context["dag"].dag_id
+    task_id        = task_instance.task_id
     execution_date = context["execution_date"].isoformat()
-    log_url = task_instance.log_url
-    exception = context.get("exception", "Unknown")
+    log_url        = task_instance.log_url
+    exception      = context.get("exception", "Unknown")
 
     message = (
         f":rotating_light: *Task Failed*\n"
@@ -524,7 +510,7 @@ with DAG(
     ...
 ) as dag:
 
-    critical_task = BigQueryInsertJobOperator(
+    critical_task = SQLExecuteQueryOperator(
         task_id="load_orders",
         sla=timedelta(hours=1),  # must complete within 1 hour
         ...
@@ -538,60 +524,28 @@ with DAG(
 Add validation tasks after every load step:
 
 ```python
-def validate_row_counts(**context):
-    """Assert loaded row count is within expected bounds."""
-    ds = context["ds"]
-    hook = BigQueryHook(gcp_conn_id="bigquery_prod")
-    result = hook.get_first(
-        f"SELECT COUNT(*) FROM `project.dataset.orders` WHERE order_date = '{ds}'"
-    )
-    row_count = result[0]
+from airflow.providers.common.sql.operators.sql import SQLCheckOperator
 
-    if row_count == 0:
-        raise ValueError(f"Zero rows loaded for {ds} — possible upstream issue")
-
-    # Log for observability (Principle 7)
-    context["task_instance"].xcom_push(key="row_count", value=row_count)
-    print(f"Loaded {row_count:,} rows for {ds}")
-
-validate = PythonOperator(
-    task_id="validate_row_counts",
-    python_callable=validate_row_counts,
+check_freshness = SQLCheckOperator(
+    task_id="check_orders_freshness",
+    conn_id="warehouse_prod",
+    sql="""
+        SELECT MAX(loaded_at) > NOW() - INTERVAL '2 hours' AS is_fresh
+        FROM orders
+    """,
 )
 
-load_orders >> validate >> downstream_tasks
-```
+check_no_duplicates = SQLCheckOperator(
+    task_id="check_orders_no_duplicates",
+    conn_id="warehouse_prod",
+    sql="""
+        SELECT COUNT(*) = COUNT(DISTINCT order_id) AS no_dups
+        FROM orders
+        WHERE order_date = '{{ ds }}'
+    """,
+)
 
-### Custom metrics with Cloud Monitoring
-
-Push pipeline metrics to Cloud Monitoring for dashboards and alerting beyond Airflow:
-
-```python
-from google.cloud import monitoring_v3
-import time
-
-def emit_metric(project_id, metric_type, value, labels=None):
-    """Push a custom metric to Cloud Monitoring."""
-    client = monitoring_v3.MetricServiceClient()
-    project_name = f"projects/{project_id}"
-
-    series = monitoring_v3.TimeSeries()
-    series.metric.type = f"custom.googleapis.com/airflow/{metric_type}"
-    series.resource.type = "global"
-    if labels:
-        for k, v in labels.items():
-            series.metric.labels[k] = v
-
-    point = monitoring_v3.Point()
-    point.value.int64_value = value
-    now = time.time()
-    point.interval.end_time.seconds = int(now)
-    series.points = [point]
-
-    client.create_time_series(name=project_name, time_series=[series])
-
-# Usage in a task:
-emit_metric("my-project", "rows_loaded", row_count, {"dag": "orders_daily_load", "table": "orders"})
+load_orders >> [check_freshness, check_no_duplicates] >> downstream_tasks
 ```
 
 ---
@@ -602,7 +556,7 @@ Before merging any DAG, verify:
 
 - [ ] `default_args` includes retry config with exponential backoff
 - [ ] Every task has an `execution_timeout`
-- [ ] All loads use DELETE+INSERT, MERGE, or WRITE_TRUNCATE (no bare INSERT)
+- [ ] All loads use DELETE+INSERT, MERGE, or TRUNCATE+INSERT (no bare INSERT)
 - [ ] All SQL uses `{{ ds }}` templating, not `CURRENT_DATE()`
 - [ ] Sensors use `mode="reschedule"` with reasonable `timeout`
 - [ ] `on_failure_callback` is set for alerting

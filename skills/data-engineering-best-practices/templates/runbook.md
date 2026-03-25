@@ -19,7 +19,7 @@ tags: [runbook, operations, incident-response, template]
 | DAG ID (if Airflow) | {dag_id} |
 | Schedule | {e.g., "daily 06:00 UTC"} |
 | Source(s) | {source systems} |
-| Destination(s) | {destination tables/datasets} |
+| Destination(s) | {destination tables/schemas} |
 | SLA | {e.g., "Data available by 08:00 UTC"} |
 | Expected duration | {e.g., "15-25 minutes"} |
 | Expected row count | {e.g., "1M-3M rows/run"} |
@@ -31,15 +31,15 @@ tags: [runbook, operations, incident-response, template]
 {ASCII diagram of the pipeline flow}
 
 Example:
-  [Salesforce API] → [Cloud Composer Task] → [GCS Landing (Avro)]
-                                                     ↓
-                                            [BQ Load Job]
-                                                     ↓
-                                            [raw.salesforce_orders]
-                                                     ↓
-                                            [dbt transform]
-                                                     ↓
-                                            [mart.orders_daily]
+  [Salesforce API] → [Airflow Extract Task] → [Object Storage (Parquet)]
+                                                       ↓
+                                              [Warehouse LOAD Job]
+                                                       ↓
+                                              [raw.salesforce_orders]
+                                                       ↓
+                                              [dbt transform]
+                                                       ↓
+                                              [mart.orders_daily]
 ```
 
 ## Monitoring & Alerts
@@ -64,7 +64,7 @@ Example:
 3. Identify the error type:
    - **Connection error:** Source system unreachable → see "Source Down"
    - **Schema error:** Source schema changed → see "Schema Mismatch"
-   - **Resource error:** BQ quota/slot exhaustion → see "Resource Exhaustion"
+   - **Resource error:** Warehouse quota/slot exhaustion → see "Resource Exhaustion"
    - **Data error:** Unexpected NULLs, duplicates → see "Data Quality"
 
 **Resolution:**
@@ -79,15 +79,15 @@ Example:
 
 **Diagnosis steps:**
 1. Check Airflow UI → DAG run → identify the slow task
-2. Check BigQuery job history for long-running queries
+2. Check warehouse query history for long-running queries
 3. Check source system response times
-4. Check Composer resource utilization (CPU, memory)
+4. Check Airflow resource utilization (CPU, memory)
 
 **Resolution:**
 1. If stuck on sensor: verify upstream dependency, consider `soft_fail`
-2. If BQ query slow: check for missing partition pruning, full table scans
+2. If warehouse query slow: check for missing partition pruning, full table scans
 3. If source slow: check source system status, consider increasing timeout
-4. If resource constrained: scale Composer environment or adjust parallelism
+4. If resource constrained: scale Airflow workers or adjust parallelism
 
 ### Data Quality Issue
 
@@ -99,18 +99,18 @@ Example:
    ```sql
    -- Row count comparison
    SELECT COUNT(*) as row_count, DATE(loaded_at) as load_date
-   FROM `{TABLE}` WHERE DATE(loaded_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
+   FROM {TABLE} WHERE DATE(loaded_at) >= CURRENT_DATE - INTERVAL '7 days'
    GROUP BY load_date ORDER BY load_date;
 
    -- NULL rate check
    SELECT
-     COUNTIF({COLUMN} IS NULL) / COUNT(*) as null_rate
-   FROM `{TABLE}` WHERE DATE(_PARTITIONTIME) = '{DATE}';
+     SUM(CASE WHEN {COLUMN} IS NULL THEN 1 ELSE 0 END)::FLOAT / COUNT(*) as null_rate
+   FROM {TABLE} WHERE DATE(loaded_at) = '{DATE}';
 
    -- Duplicate check
    SELECT {PRIMARY_KEY}, COUNT(*) as cnt
-   FROM `{TABLE}` WHERE DATE(_PARTITIONTIME) = '{DATE}'
-   GROUP BY {PRIMARY_KEY} HAVING cnt > 1;
+   FROM {TABLE} WHERE DATE(loaded_at) = '{DATE}'
+   GROUP BY {PRIMARY_KEY} HAVING COUNT(*) > 1;
    ```
 3. Check source system for data issues
 
@@ -121,7 +121,7 @@ Example:
 
 ### Schema Mismatch
 
-**Symptoms:** `SchemaError`, `BigQueryError: no such field`, unexpected columns.
+**Symptoms:** Schema validation error, `column not found`, unexpected columns.
 
 **Diagnosis steps:**
 1. Compare source schema with data contract
@@ -140,25 +140,25 @@ Example:
 **Diagnosis steps:**
 1. Check source system status page
 2. Verify credentials/tokens haven't expired
-3. Check network connectivity from Composer environment
+3. Check network connectivity from the pipeline environment
 
 **Resolution:**
 1. If source outage: wait for recovery, pipeline retries should handle automatically
-2. If auth expired: rotate credentials in Secret Manager, restart affected tasks
-3. If network issue: check VPC peering, firewall rules, Cloud NAT
+2. If auth expired: rotate credentials in secrets manager, restart affected tasks
+3. If network issue: check firewall rules, proxy configuration
 
 ### Resource Exhaustion
 
-**Symptoms:** BQ quota errors, Composer OOM, slot reservation exceeded.
+**Symptoms:** Warehouse quota errors, OOM errors, concurrency limits exceeded.
 
 **Diagnosis steps:**
-1. Check BQ admin console for slot utilization
-2. Check Composer monitoring for CPU/memory usage
+1. Check warehouse admin console for concurrency/slot utilization
+2. Check Airflow monitoring for CPU/memory usage
 3. Check concurrent pipeline count
 
 **Resolution:**
-1. If BQ slots: reduce parallelism or request quota increase
-2. If Composer: scale worker count/resources in environment config
+1. If warehouse concurrency: reduce parallelism or request quota increase
+2. If Airflow: scale worker count/resources
 3. If concurrent load: stagger pipeline schedules
 
 ## Backfill Procedure
@@ -183,7 +183,7 @@ Example:
 |-------|---------|------|
 | L1 | On-call DE | First response, diagnosis |
 | L2 | DE Team Lead | Unresolved after 30 min, or P1 severity |
-| L3 | Platform/Infra | Composer/GCP infrastructure issues |
+| L3 | Platform/Infra | Infrastructure issues |
 | L4 | Engineering Manager | SLA breach, data loss, customer impact |
 
 ## Key Links
@@ -191,7 +191,7 @@ Example:
 | Resource | URL |
 |----------|-----|
 | Airflow UI | {URL} |
-| BigQuery Console | {URL} |
+| Warehouse Console | {URL} |
 | Source System Docs | {URL} |
 | Data Contract | {PATH} |
 | Alert Dashboard | {URL} |

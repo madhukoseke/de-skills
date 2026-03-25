@@ -1,0 +1,49 @@
+name: "Playbook / Feature Suggestion"
+description: "Suggest a new playbook, template, operating mode, or improvement to existing content"
+title: "[Suggestion] "
+labels:
+  - "enhancement"
+body:
+  - type: dropdown
+    id: contribution_type
+    attributes:
+      label: "What type of contribution?"
+      options:
+        - "New playbook"
+        - "New template"
+        - "New operating mode"
+        - "Improvement to existing playbook"
+        - "Improvement to existing template"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What problem does this solve?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_content
+    attributes:
+      label: "Describe the proposed content or change"
+    validations:
+      required: true
+
+  - type: textarea
+    id: tools_platforms
+    attributes:
+      label: "Which data stack tools / platforms does this cover?"
+      placeholder: "e.g. dbt, Airflow, Spark, Kafka"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist"
+      options:
+        - label: "I searched existing issues and PRs"
+        - label: "I am willing to contribute this myself"

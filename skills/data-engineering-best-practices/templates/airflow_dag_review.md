@@ -28,7 +28,7 @@ tags: [airflow, dag-review, template]
 |---|---------|------|--------|------|
 | 1 | Idempotency | Tasks produce same result on re-run | {PASS/FAIL/WARN/N-A} | {details} |
 | 2 | Idempotency | Uses MERGE or DELETE+INSERT (not bare INSERT) | {PASS/FAIL/WARN/N-A} | {details} |
-| 3 | Idempotency | Partition overwrite uses `write_disposition=WRITE_TRUNCATE` with partition decorator | {PASS/FAIL/WARN/N-A} | {details} |
+| 3 | Idempotency | Partition/full overwrite uses TRUNCATE or equivalent truncate strategy | {PASS/FAIL/WARN/N-A} | {details} |
 | 4 | Retries | `retries` is set (≥ 2 for external calls) | {PASS/FAIL/WARN/N-A} | {details} |
 | 5 | Retries | `retry_delay` uses exponential backoff | {PASS/FAIL/WARN/N-A} | {details} |
 | 6 | Retries | `retry_exponential_backoff=True` for external calls | {PASS/FAIL/WARN/N-A} | {details} |
@@ -44,7 +44,7 @@ tags: [airflow, dag-review, template]
 | 16 | Separation | No business logic in DAG file (SQL in .sql files, transforms in modules) | {PASS/FAIL/WARN/N-A} | {details} |
 | 17 | Separation | DAG file only defines structure and dependencies | {PASS/FAIL/WARN/N-A} | {details} |
 | 18 | Connections | Uses Airflow connections/variables (no hardcoded credentials) | {PASS/FAIL/WARN/N-A} | {details} |
-| 19 | Connections | Secrets managed via Secret Backend (not Airflow Variables for sensitive data) | {PASS/FAIL/WARN/N-A} | {details} |
+| 19 | Connections | Secrets managed via secret backend (not plain environment variables) | {PASS/FAIL/WARN/N-A} | {details} |
 | 20 | Observability | `on_failure_callback` is configured | {PASS/FAIL/WARN/N-A} | {details} |
 | 21 | Observability | Row count / data quality checks exist | {PASS/FAIL/WARN/N-A} | {details} |
 | 22 | Observability | SLA / `sla_miss_callback` is configured for critical paths | {PASS/FAIL/WARN/N-A} | {details} |

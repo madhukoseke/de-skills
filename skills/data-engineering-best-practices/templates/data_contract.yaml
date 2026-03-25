@@ -1,6 +1,6 @@
 # Data Contract Template
 # Fill in all fields. Delete comments before committing.
-# Referenced by: DESIGN, BQ_MODEL, PR_REVIEW modes
+# Referenced by: DESIGN, WAREHOUSE, PR_REVIEW modes
 
 schema_version: "1.0"
 
@@ -19,7 +19,7 @@ contract:
 
 # === Source ===
 source:
-  system: ""                        # e.g., "salesforce", "postgres_orders_db", "pub/sub"
+  system: ""                        # e.g., "salesforce", "postgres_orders_db", "kafka"
   type: ""                          # api | database | file | event_stream
   connection: ""                    # Connection identifier (not credentials)
   extraction_method: ""             # full_refresh | incremental | cdc | streaming
@@ -27,17 +27,17 @@ source:
 
 # === Destination ===
 destination:
-  project: ""                       # GCP project ID
-  dataset: ""                       # BigQuery dataset name
-  table: ""                         # BigQuery table name
+  warehouse: ""                     # Warehouse or database name
+  schema: ""                        # Schema or dataset name
+  table: ""                         # Table name
   layer: ""                         # raw | staging | curated | mart
-  format: ""                        # bigquery_native | parquet | avro | json
+  format: ""                        # native_table | parquet | avro | json | delta
 
 # === Schema Definition ===
 schema:
   fields:
     - name: ""                      # Column name (snake_case)
-      type: ""                      # STRING | INT64 | FLOAT64 | BOOL | TIMESTAMP | DATE | RECORD | ARRAY
+      type: ""                      # VARCHAR | INTEGER | BIGINT | FLOAT | BOOLEAN | TIMESTAMP | DATE | STRUCT | ARRAY
       mode: "NULLABLE"              # NULLABLE | REQUIRED | REPEATED
       description: ""               # Human-readable description
       pii: false                    # true if column contains PII (triggers masking/encryption rules)
@@ -47,7 +47,7 @@ schema:
 
     # Copy the block above for each field. Example:
     # - name: "customer_id"
-    #   type: "STRING"
+    #   type: "VARCHAR"
     #   mode: "REQUIRED"
     #   description: "Unique customer identifier from source system"
     #   pii: false
@@ -56,9 +56,10 @@ schema:
     #   example: "CUST-123456"
 
   primary_key: []                   # List of columns forming the primary/business key
-  partition_column: ""              # Column used for BigQuery partitioning
-  partition_type: ""                # DAY | HOUR | MONTH | YEAR | INTEGER_RANGE
-  cluster_columns: []               # Up to 4 columns, most-filtered-first order
+  partition_column: ""              # Column used for table partitioning (if applicable)
+  partition_type: ""                # DAY | HOUR | MONTH | YEAR | INTEGER_RANGE (warehouse-dependent)
+  sort_keys: []                     # Sort/cluster columns for query performance (warehouse-dependent)
+  indexes: []                       # Additional index columns (for OLTP-style warehouses)
 
 # === Quality Rules ===
 quality:
@@ -89,7 +90,7 @@ change_management:
   breaking_changes:                 # What constitutes a breaking change:
     - "Removing or renaming a field"
     - "Changing a field type"
-    - "Changing partition or cluster columns"
+    - "Changing partition or sort key columns"
     - "Changing primary key columns"
     - "Reducing data retention"
   change_log:
@@ -102,8 +103,8 @@ change_management:
 # === Access & Security ===
 access:
   classification: ""                # public | internal | confidential | restricted
-  authorized_readers: []            # List of GCP groups/service accounts with read access
-  authorized_writers: []            # List of GCP groups/service accounts with write access
+  authorized_readers: []            # Groups or roles with read access
+  authorized_writers: []            # Groups or roles with write access
   row_level_security: false         # Whether row-level access control is applied
   column_level_security: false      # Whether column-level masking is applied
   pii_handling: ""                  # masked | encrypted | tokenized | none

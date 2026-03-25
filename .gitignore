@@ -17,3 +17,29 @@ __pycache__/
 *.pyc
 .pytest_cache/
 venv/
+
+# Benchmark-generated artifacts
+tests/benchmark/results/
+tests/benchmark/skill_vs_no_skill_report.md
+tests/benchmark/live_runs/
+
+# Environment and secrets
+.env
+.env.*
+*.key
+*.pem
+*.p12
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+.coverage
+coverage/
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

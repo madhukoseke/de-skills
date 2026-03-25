@@ -29,7 +29,7 @@ Fill in all sections. Used by DBT mode and PR_REVIEW mode. Referenced by `playbo
 | 2 | Column-level tests defined in schema YAML (at minimum: `unique` + `not_null` on PK) | <!-- PASS / FAIL / WARN / N-A --> | |
 | 3 | Source freshness configured for any new source | <!-- PASS / FAIL / WARN / N-A --> | |
 | 4 | Materialization is appropriate for the layer | <!-- PASS / FAIL / WARN / N-A --> | |
-| 5 | Incremental model includes partition filter in `is_incremental()` block | <!-- PASS / FAIL / N-A --> | |
+| 5 | Incremental model includes time-based filter in `is_incremental()` block | <!-- PASS / FAIL / N-A --> | |
 | 6 | `on_schema_change` is set (prefer `append_new_columns`) | <!-- PASS / FAIL / N-A --> | |
 | 7 | `unique_key` defined for incremental models | <!-- PASS / FAIL / N-A --> | |
 | 8 | No `SELECT *` — explicit column list | <!-- PASS / FAIL / WARN / N-A --> | |
@@ -37,7 +37,7 @@ Fill in all sections. Used by DBT mode and PR_REVIEW mode. Referenced by `playbo
 | 10 | Model has a description in schema YAML | <!-- PASS / FAIL / WARN --> | |
 | 11 | `dbt test` passes in CI | <!-- PASS / FAIL --> | |
 | 12 | Data contract updated if mart schema changed | <!-- PASS / FAIL / N-A --> | |
-| 13 | No hardcoded project/dataset IDs | <!-- PASS / FAIL --> | |
+| 13 | No hardcoded schema/database identifiers | <!-- PASS / FAIL --> | |
 | 14 | `dbt compile` succeeds without errors | <!-- PASS / FAIL --> | |
 | 15 | Column names follow `snake_case` convention | <!-- PASS / FAIL / WARN --> | |
 
@@ -49,9 +49,8 @@ Fill in all sections. Used by DBT mode and PR_REVIEW mode. Referenced by `playbo
 
 ```
 Materialization:
-Partition field:
-Partition type: (DAY / HOUR / MONTH)
-Cluster columns:
+Partition field (if applicable):
+Sort / cluster columns (if applicable):
 Unique key:
 on_schema_change:
 ```
@@ -65,8 +64,8 @@ on_schema_change:
 
 ### Output Table
 
-| Field | BQ Dataset | Table Name |
-|-------|-----------|------------|
+| Field | Schema | Table Name |
+|-------|--------|------------|
 | Destination | | |
 
 ### Tests Defined
@@ -107,12 +106,12 @@ on_schema_change:
 
 For `table` or `incremental` materializations:
 - Estimated table size: <!-- e.g., 50 GB -->
-- Estimated monthly storage cost: <!-- size * $0.02/GB -->
-- Estimated query cost for downstream consumers: <!-- bytes_scanned * $6.25/TB -->
+- Estimated monthly storage cost: <!-- size * warehouse storage rate -->
+- Estimated query cost for downstream consumers: <!-- from EXPLAIN / dry-run -->
 
 For `incremental` models:
 - Estimated rows processed per run: <!-- -->
-- Estimated bytes scanned per run (from BQ dry-run): <!-- -->
+- Estimated compute per run (from EXPLAIN or dry-run): <!-- -->
 
 ---
 

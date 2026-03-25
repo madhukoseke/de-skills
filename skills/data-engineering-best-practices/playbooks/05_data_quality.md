@@ -1,7 +1,7 @@
 ---
 title: "Data Quality"
-description: "DQ rule types, BQ SQL assertions, dbt tests, Great Expectations, anomaly detection, quarantine patterns"
-tags: [data-quality, dq, testing, great-expectations, dbt-tests, assertions, bigquery]
+description: "DQ rule types, SQL assertions, dbt tests, anomaly detection, quarantine patterns"
+tags: [data-quality, dq, testing, great-expectations, dbt-tests, assertions]
 related_templates:
   - ../templates/data_quality_report.md
   - ../templates/data_contract.yaml
@@ -21,12 +21,12 @@ Classify every check before implementing it. This determines severity, placement
 
 | Category | What It Checks | Example | Default Severity |
 |---|---|---|---|
-| **Freshness** | Data arrived on time relative to SLA | `MAX(loaded_at) < NOW() - INTERVAL 2 HOUR` | Error |
+| **Freshness** | Data arrived on time relative to SLA | `MAX(loaded_at) < NOW() - INTERVAL '2 hours'` | Error |
 | **Completeness** | Expected rows/values are present | Row count >= yesterday's count * 0.9; NOT NULL on required columns | Error |
 | **Uniqueness** | No duplicate records on business key | `COUNT(*) = COUNT(DISTINCT order_id)` on fact_orders | Error |
 | **Validity** | Values conform to domain rules | `order_status IN ('pending','confirmed','shipped','cancelled')` | Error |
 | **Referential Integrity** | FK relationships are intact | Every `customer_id` in `fact_orders` exists in `dim_customers` | Error |
-| **Consistency** | Cross-table/cross-system agreement | Row count in BQ matches row count in source system | Warn |
+| **Consistency** | Cross-table/cross-system agreement | Row count in warehouse matches row count in source system | Warn |
 | **Timeliness** | Events arrive in expected time windows | P99 event arrival latency < 5 minutes | Warn |
 | **Distribution** | Statistical properties are stable | `AVG(order_amount)` within 2 stddev of rolling 7-day average | Warn |
 
@@ -49,19 +49,19 @@ DQ checks belong at every layer boundary. Failing late (at the mart) is worse th
 
 ---
 
-## 3. BigQuery SQL Assertions
+## 3. SQL Assertions
 
-Use these patterns directly in Airflow tasks or as post-load validation steps.
+Use these patterns directly in Airflow tasks or as post-load validation steps. Adapt syntax for your specific warehouse (Snowflake, Redshift, Databricks, Postgres, etc.).
 
 ### Freshness Check
 
 ```sql
 -- Fails if data is stale (loaded more than 2 hours ago)
 SELECT
-  MAX(loaded_at) AS latest_load,
-  TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(loaded_at), HOUR) AS hours_since_load
-FROM `project.dataset.orders`
-HAVING TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(loaded_at), HOUR) > 2
+  MAX(loaded_at)                                                    AS latest_load,
+  EXTRACT(EPOCH FROM (NOW() - MAX(loaded_at))) / 3600              AS hours_since_load
+FROM orders
+HAVING EXTRACT(EPOCH FROM (NOW() - MAX(loaded_at))) / 3600 > 2
 -- Returns rows = stale. Zero rows = fresh.
 ```
 
@@ -70,19 +70,19 @@ HAVING TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(loaded_at), HOUR) > 2
 ```sql
 -- Fails if today's load is less than 80% or more than 200% of yesterday's
 WITH today AS (
-  SELECT COUNT(*) AS cnt FROM `project.dataset.orders`
-  WHERE order_date = CURRENT_DATE()
+  SELECT COUNT(*) AS cnt FROM orders
+  WHERE order_date = CURRENT_DATE
 ),
 yesterday AS (
-  SELECT COUNT(*) AS cnt FROM `project.dataset.orders`
-  WHERE order_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)
+  SELECT COUNT(*) AS cnt FROM orders
+  WHERE order_date = CURRENT_DATE - INTERVAL '1 day'
 )
 SELECT
-  today.cnt AS today_count,
+  today.cnt     AS today_count,
   yesterday.cnt AS yesterday_count,
-  SAFE_DIVIDE(today.cnt, yesterday.cnt) AS ratio
+  today.cnt::FLOAT / NULLIF(yesterday.cnt, 0) AS ratio
 FROM today, yesterday
-WHERE SAFE_DIVIDE(today.cnt, yesterday.cnt) NOT BETWEEN 0.8 AND 2.0
+WHERE today.cnt::FLOAT / NULLIF(yesterday.cnt, 0) NOT BETWEEN 0.8 AND 2.0
 ```
 
 ### Uniqueness Check
@@ -90,8 +90,8 @@ WHERE SAFE_DIVIDE(today.cnt, yesterday.cnt) NOT BETWEEN 0.8 AND 2.0
 ```sql
 -- Fails if there are duplicate order_ids for today
 SELECT order_id, COUNT(*) AS occurrences
-FROM `project.dataset.orders`
-WHERE order_date = CURRENT_DATE()
+FROM orders
+WHERE order_date = CURRENT_DATE
 GROUP BY order_id
 HAVING COUNT(*) > 1
 ```
@@ -101,10 +101,10 @@ HAVING COUNT(*) > 1
 ```sql
 -- Finds order_items that reference non-existent orders
 SELECT oi.order_item_id, oi.order_id
-FROM `project.dataset.order_items` oi
-LEFT JOIN `project.dataset.orders` o ON oi.order_id = o.order_id
+FROM order_items oi
+LEFT JOIN orders o ON oi.order_id = o.order_id
 WHERE o.order_id IS NULL
-  AND oi.order_date = CURRENT_DATE()
+  AND oi.order_date = CURRENT_DATE
 ```
 
 ### NULL Check on Required Columns
@@ -112,17 +112,17 @@ WHERE o.order_id IS NULL
 ```sql
 -- Fails if any required column is NULL
 SELECT
-  COUNTIF(order_id IS NULL) AS null_order_ids,
-  COUNTIF(customer_id IS NULL) AS null_customer_ids,
-  COUNTIF(order_date IS NULL) AS null_order_dates,
-  COUNTIF(total_amount IS NULL) AS null_amounts
-FROM `project.dataset.orders`
-WHERE order_date = CURRENT_DATE()
+  SUM(CASE WHEN order_id    IS NULL THEN 1 ELSE 0 END) AS null_order_ids,
+  SUM(CASE WHEN customer_id IS NULL THEN 1 ELSE 0 END) AS null_customer_ids,
+  SUM(CASE WHEN order_date  IS NULL THEN 1 ELSE 0 END) AS null_order_dates,
+  SUM(CASE WHEN total_amount IS NULL THEN 1 ELSE 0 END) AS null_amounts
+FROM orders
+WHERE order_date = CURRENT_DATE
 HAVING
-  null_order_ids > 0
-  OR null_customer_ids > 0
-  OR null_order_dates > 0
-  OR null_amounts > 0
+  SUM(CASE WHEN order_id    IS NULL THEN 1 ELSE 0 END) > 0
+  OR SUM(CASE WHEN customer_id IS NULL THEN 1 ELSE 0 END) > 0
+  OR SUM(CASE WHEN order_date  IS NULL THEN 1 ELSE 0 END) > 0
+  OR SUM(CASE WHEN total_amount IS NULL THEN 1 ELSE 0 END) > 0
 ```
 
 ### Accepted Values
@@ -130,51 +130,45 @@ HAVING
 ```sql
 -- Fails if any order has an unexpected status
 SELECT DISTINCT order_status
-FROM `project.dataset.orders`
-WHERE order_date = CURRENT_DATE()
+FROM orders
+WHERE order_date = CURRENT_DATE
   AND order_status NOT IN ('pending', 'confirmed', 'shipped', 'delivered', 'cancelled')
 ```
 
 ### Implementing as an Airflow Task
 
 ```python
-from airflow.providers.google.cloud.operators.bigquery import BigQueryCheckOperator
+from airflow.providers.common.sql.operators.sql import SQLCheckOperator, SQLIntervalCheckOperator
 
-check_freshness = BigQueryCheckOperator(
+check_freshness = SQLCheckOperator(
     task_id="check_orders_freshness",
+    conn_id="warehouse_prod",
     sql="""
-        SELECT TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(loaded_at), HOUR) < 2 AS is_fresh
-        FROM `project.dataset.orders`
+        SELECT MAX(loaded_at) > NOW() - INTERVAL '2 hours' AS is_fresh
+        FROM orders
     """,
-    use_legacy_sql=False,
-    # BigQueryCheckOperator fails if the query returns FALSE or 0 rows
+    # SQLCheckOperator fails if the query returns FALSE or 0 rows
 )
 
-check_no_duplicates = BigQueryCheckOperator(
+check_no_duplicates = SQLCheckOperator(
     task_id="check_orders_no_duplicates",
+    conn_id="warehouse_prod",
     sql="""
         SELECT COUNT(*) = COUNT(DISTINCT order_id) AS no_dups
-        FROM `project.dataset.orders`
+        FROM orders
         WHERE order_date = '{{ ds }}'
     """,
-    use_legacy_sql=False,
 )
 
-load_orders >> [check_freshness, check_no_duplicates] >> load_mart
-```
-
-For row-count interval checks, use `BigQueryIntervalCheckOperator`:
-
-```python
-from airflow.providers.google.cloud.operators.bigquery import BigQueryIntervalCheckOperator
-
-check_row_count = BigQueryIntervalCheckOperator(
+check_row_count = SQLIntervalCheckOperator(
     task_id="check_row_count_vs_yesterday",
-    table="project.dataset.orders",
+    conn_id="warehouse_prod",
+    table="orders",
     days_back=-1,
     metrics_thresholds={"COUNT(*)": 1.5},  # today's count must be within 1.5x of yesterday's
-    use_legacy_sql=False,
 )
+
+load_orders >> [check_freshness, check_no_duplicates, check_row_count] >> load_mart
 ```
 
 ---
@@ -274,7 +268,7 @@ Use Great Expectations when:
 - You are validating data from multiple sources with different rules
 - You want checkpoint-based validation that integrates with existing pipelines
 
-### Checkpoint Pattern (GCS backend + BigQuery datasource)
+### Checkpoint Pattern
 
 ```python
 # great_expectations/checkpoints/orders_checkpoint.yaml
@@ -286,9 +280,9 @@ run_name_template: "%Y-%m-%d-orders-daily"
 
 validations:
   - batch_request:
-      datasource_name: bigquery_datasource
+      datasource_name: warehouse_datasource
       data_connector_name: default_inferred_data_connector
-      data_asset_name: project.dataset.orders
+      data_asset_name: orders
       data_connector_query:
         index: -1  # most recent partition
     expectation_suite_name: orders.critical
@@ -327,7 +321,7 @@ load_orders >> run_ge_checkpoint >> load_mart
 
 Statistical anomaly detection catches issues that threshold-based checks miss (e.g., a gradual drift that never crosses a hard limit).
 
-### Simple Z-Score in BQ
+### Simple Z-Score in SQL
 
 ```sql
 -- Detects if today's order count is anomalous vs rolling 30-day baseline
@@ -335,114 +329,47 @@ WITH daily_counts AS (
   SELECT
     order_date,
     COUNT(*) AS order_count
-  FROM `project.dataset.orders`
-  WHERE order_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 31 DAY)
+  FROM orders
+  WHERE order_date >= CURRENT_DATE - INTERVAL '31 days'
   GROUP BY order_date
 ),
 stats AS (
   SELECT
-    AVG(order_count) AS mean_count,
+    AVG(order_count)    AS mean_count,
     STDDEV(order_count) AS stddev_count
   FROM daily_counts
-  WHERE order_date < CURRENT_DATE()  -- exclude today from baseline
+  WHERE order_date < CURRENT_DATE  -- exclude today from baseline
 ),
 today AS (
-  SELECT order_count FROM daily_counts WHERE order_date = CURRENT_DATE()
+  SELECT order_count FROM daily_counts WHERE order_date = CURRENT_DATE
 )
 SELECT
   today.order_count,
   stats.mean_count,
   stats.stddev_count,
-  SAFE_DIVIDE(ABS(today.order_count - stats.mean_count), stats.stddev_count) AS z_score
+  ABS(today.order_count - stats.mean_count) / NULLIF(stats.stddev_count, 0) AS z_score
 FROM today, stats
-WHERE SAFE_DIVIDE(ABS(today.order_count - stats.mean_count), stats.stddev_count) > 3.0
+WHERE ABS(today.order_count - stats.mean_count) / NULLIF(stats.stddev_count, 0) > 3.0
 -- z_score > 3 = anomaly (>3 standard deviations from mean)
 ```
 
-### Cloud Monitoring Custom Metric for DQ Alerts
+### Emitting DQ Metrics for Alerting
 
 ```python
-from google.cloud import monitoring_v3
-import time
-
-def emit_dq_metric(project_id: str, table: str, check_name: str, passed: bool):
-    """Emit a DQ pass/fail metric to Cloud Monitoring."""
-    client = monitoring_v3.MetricServiceClient()
-    series = monitoring_v3.TimeSeries()
-    series.metric.type = "custom.googleapis.com/data_quality/check_result"
-    series.metric.labels["table"] = table
-    series.metric.labels["check"] = check_name
-    series.resource.type = "global"
-
-    point = monitoring_v3.Point()
-    point.value.bool_value = passed
-    point.interval.end_time.seconds = int(time.time())
-    series.points = [point]
-
-    client.create_time_series(
-        name=f"projects/{project_id}",
-        time_series=[series]
+def emit_dq_result(metric_store, table: str, check_name: str, passed: bool):
+    """Record DQ pass/fail to your observability system (Datadog, Prometheus, etc.)."""
+    metric_store.gauge(
+        metric="data_quality.check_result",
+        value=1 if passed else 0,
+        tags=[f"table:{table}", f"check:{check_name}"],
     )
 ```
 
-Alert when any DQ check fails using a Cloud Monitoring alerting policy with threshold on `check_result = false`.
+Alert when any DQ check fails using your observability platform's alerting policy.
 
 ---
 
-## 7. PII Detection with Cloud DLP
-
-For any table where PII classification is uncertain, scan before applying data contract classifications.
-
-### Trigger a DLP Inspection Job from Airflow
-
-```python
-from airflow.providers.google.cloud.operators.dlp import CloudDLPCreateDLPJobOperator
-
-dlp_scan = CloudDLPCreateDLPJobOperator(
-    task_id="dlp_scan_new_table",
-    project_id="my-project",
-    inspect_job={
-        "storage_config": {
-            "big_query_options": {
-                "table_reference": {
-                    "project_id": "my-project",
-                    "dataset_id": "raw_customers",
-                    "table_id": "profiles",
-                }
-            }
-        },
-        "inspect_config": {
-            "info_types": [
-                {"name": "EMAIL_ADDRESS"},
-                {"name": "PHONE_NUMBER"},
-                {"name": "CREDIT_CARD_NUMBER"},
-                {"name": "US_SOCIAL_SECURITY_NUMBER"},
-                {"name": "PERSON_NAME"},
-            ],
-            "min_likelihood": "LIKELY",
-        },
-        "actions": [
-            {
-                "save_findings": {
-                    "output_config": {
-                        "table": {
-                            "project_id": "my-project",
-                            "dataset_id": "dlp_results",
-                            "table_id": "pii_findings",
-                        }
-                    }
-                }
-            }
-        ],
-    },
-)
-```
-
-Use DLP findings to update the `pii` and `pii_category` fields in the data contract.
-
----
-
-## 8. Quarantine Pattern
+## 7. Quarantine Pattern
 
 When a DQ check fails, do not silently drop bad rows or halt the entire pipeline. Quarantine them.
 
@@ -461,20 +388,18 @@ When a DQ check fails, do not silently drop bad rows or halt the entire pipeline
 ### Quarantine Table DDL
 
 ```sql
-CREATE TABLE IF NOT EXISTS `project.raw_orders.orders__quarantine`
+CREATE TABLE IF NOT EXISTS raw_orders__quarantine
 (
-  quarantine_id     STRING NOT NULL DEFAULT GENERATE_UUID(),
-  quarantined_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-  source_table      STRING NOT NULL,
-  failure_reason    STRING NOT NULL,
-  raw_record        JSON NOT NULL,         -- original bad row serialized as JSON
-  batch_id          STRING,
-  resolved          BOOL NOT NULL DEFAULT FALSE,
+  quarantine_id     VARCHAR    NOT NULL DEFAULT gen_random_uuid(),
+  quarantined_at    TIMESTAMP  NOT NULL DEFAULT NOW(),
+  source_table      VARCHAR    NOT NULL,
+  failure_reason    VARCHAR    NOT NULL,
+  raw_record        JSONB      NOT NULL,  -- original bad row serialized as JSON
+  batch_id          VARCHAR,
+  resolved          BOOLEAN    NOT NULL DEFAULT FALSE,
   resolved_at       TIMESTAMP,
-  resolution_note   STRING
-)
-PARTITION BY DATE(quarantined_at)
-CLUSTER BY source_table, resolved;
+  resolution_note   VARCHAR
+);
 ```
 
 ### Writing to Quarantine in Airflow
@@ -482,43 +407,49 @@ CLUSTER BY source_table, resolved;
 ```python
 def route_bad_rows(**context):
     """After a DQ check, move failing rows to quarantine."""
-    ds = context["ds"]
-    hook = BigQueryHook(gcp_conn_id="bigquery_prod")
+    ds   = context["ds"]
+    hook = PostgresHook(postgres_conn_id="warehouse_prod")
 
-    # Move bad rows to quarantine
-    hook.run(f"""
-        INSERT INTO `project.raw_orders.orders__quarantine`
+    # Move bad rows to quarantine — use parameters dict, never f-string into SQL
+    hook.run(
+        """
+        INSERT INTO raw_orders__quarantine
           (source_table, failure_reason, raw_record, batch_id)
         SELECT
-          'raw_orders.orders',
+          'raw_orders',
           'duplicate_order_id',
-          TO_JSON_STRING(t),
-          '{ds}'
-        FROM `project.raw_orders.orders` t
-        WHERE order_date = '{ds}'
+          row_to_json(t),
+          %(ds)s
+        FROM raw_orders t
+        WHERE order_date = %(ds)s
           AND order_id IN (
             SELECT order_id
-            FROM `project.raw_orders.orders`
-            WHERE order_date = '{ds}'
+            FROM raw_orders
+            WHERE order_date = %(ds)s
             GROUP BY order_id HAVING COUNT(*) > 1
           )
-    """)
+        """,
+        parameters={"ds": ds},
+    )
 
     # Delete bad rows from main table
-    hook.run(f"""
-        DELETE FROM `project.raw_orders.orders`
-        WHERE order_date = '{ds}'
+    hook.run(
+        """
+        DELETE FROM raw_orders
+        WHERE order_date = %(ds)s
           AND order_id IN (
-            SELECT order_id FROM `project.raw_orders.orders__quarantine`
-            WHERE DATE(quarantined_at) = '{ds}'
-              AND source_table = 'raw_orders.orders'
+            SELECT order_id FROM raw_orders__quarantine
+            WHERE DATE(quarantined_at) = %(ds)s
+              AND source_table = 'raw_orders'
           )
-    """)
+        """,
+        parameters={"ds": ds},
+    )
 ```
 
 ---
 
-## 9. DQ Failure Decision Matrix
+## 8. DQ Failure Decision Matrix
 
 | Check Type | Severity | Failure Action |
 |---|---|---|

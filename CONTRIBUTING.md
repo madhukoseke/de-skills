@@ -2,6 +2,20 @@
 
 Thank you for your interest in contributing. This document provides guidance for proposing changes and maintaining the skill structure.
 
+## Scope
+
+Contributions that are welcome:
+- Fixes to incorrect, outdated, or misleading content in playbooks or templates
+- New playbooks for data engineering patterns not yet covered
+- New templates for modes that lack structured output
+- CI/test harness improvements
+- Clarity improvements to existing content
+
+Out of scope (open an issue to discuss first):
+- Adding vendor-specific lock-in (e.g., a playbook that only applies to one cloud provider)
+- Changes to the 12 non-negotiable principles without a strong technical rationale
+- Removing trust boundary guardrails
+
 ## How to Contribute
 
 ### Proposing Changes
@@ -47,6 +61,18 @@ skills/data-engineering-best-practices/
 - Markdown templates should include YAML frontmatter (`title`, `description`, `tags`) for consistency.
 - Ensure any new template is referenced from SKILL.md and the relevant playbook(s).
 
+## Playbook Style Guide
+
+When writing or editing a playbook:
+
+- **Lead with a decision rule**, not options. "Use MERGE for dimension tables" not "You can use MERGE or INSERT".
+- **Include working code examples** for every pattern. No pseudocode.
+- **Reference the relevant principle(s)** from SKILL.md when a rule ties back to one (e.g., "Principle 1: Idempotency first").
+- **Anti-patterns table required**: every playbook must have a section listing common anti-patterns with impact and fix.
+- **Cross-reference templates**: if the playbook produces a template output, link to it with `../templates/<name>`.
+- **Frontmatter required**: `title`, `description`, `tags` at the top of every playbook file.
+- **No vendor lock-in**: use generic terms (object storage, warehouse, broker) unless the playbook is explicitly scope-limited.
+
 ## Test Harness
 
 - E2E behavior checks live under `tests/`.
@@ -54,6 +80,18 @@ skills/data-engineering-best-practices/
 
 ```bash
 tests/run_e2e_harness.sh
+```
+
+- Run benchmark quality checks (skill vs baseline):
+
+```bash
+tests/benchmark/run_skill_vs_no_skill.sh
+```
+
+- Run live benchmark (same prompts/model, skill on/off):
+
+```bash
+tests/benchmark/live/run_live_benchmark.sh
 ```
 
 ## Updating References
@@ -68,3 +106,14 @@ When adding or renaming playbooks or templates:
 ## Version History
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
+
+## Good First Issues
+
+Looking for a way to contribute but not sure where to start? These are good entry points:
+
+- **Fix a typo or clarity issue** in any playbook — no domain expertise required
+- **Add a missing anti-pattern** to the table in any playbook (07_sql_patterns.md and 08_spark_patterns.md both have room)
+- **Improve a template** — add a missing field or clarify a placeholder
+- **Add a captured response fixture** for a test case that is missing one (`tests/captured_responses/`)
+
+Search for issues labeled `good first issue` on the repository.

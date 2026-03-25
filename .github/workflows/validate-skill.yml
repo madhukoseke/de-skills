@@ -32,29 +32,47 @@ jobs:
 
       - name: Validate playbook files exist
         run: |
-          for f in playbooks/01_pipeline_design.md playbooks/02_bigquery_modeling_cost.md \
-            playbooks/03_airflow_reliability.md playbooks/04_streaming_pubsub.md \
-            playbooks/05_pr_review_checklist.md playbooks/06_dbt_patterns.md \
-            playbooks/07_data_quality.md playbooks/08_environments_and_iac.md; do
+          playbooks=$(grep -oE '\(playbooks/[^)]+\)' SKILL.md | tr -d '()' | sort -u)
+          if [ -z "$playbooks" ]; then
+            echo "::error::No playbook paths found in SKILL.md"
+            exit 1
+          fi
+          while IFS= read -r f; do
             if [ ! -f "$f" ]; then
-              echo "::error::Missing file: $f"
+              echo "::error::Missing playbook referenced by SKILL.md: $f"
               exit 1
             fi
-          done
+          done <<< "$playbooks"
           echo "Playbook files validation passed"
 
       - name: Validate template files exist
         run: |
-          for f in templates/data_contract.yaml templates/airflow_dag_review.md \
-            templates/runbook.md templates/incident_postmortem.md \
-            templates/dbt_model_review.md templates/data_quality_report.md; do
+          templates=$(grep -oE '\(templates/[^)]+\)' SKILL.md | tr -d '()' | sort -u)
+          if [ -z "$templates" ]; then
+            echo "::error::No template paths found in SKILL.md"
+            exit 1
+          fi
+          while IFS= read -r f; do
             if [ ! -f "$f" ]; then
-              echo "::error::Missing file: $f"
+              echo "::error::Missing template referenced by SKILL.md: $f"
               exit 1
             fi
-          done
+          done <<< "$templates"
           echo "Template files validation passed"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Validate E2E harness
         run: |
           ../../tests/run_e2e_harness.sh
+
+      - name: Lint markdown
+        run: |
+          find ../.. -name "*.md" -not -path "*/.git/*" -not -path "*/node_modules/*" | head -5 && echo "Markdown files found (lint check placeholder — add markdownlint-cli2 when ready)"
+
+      - name: Benchmark quality gate (skill vs baseline)
+        run: |
+          ../../tests/benchmark/run_skill_vs_no_skill.sh

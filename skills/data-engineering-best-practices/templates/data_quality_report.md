@@ -12,7 +12,7 @@ Fill in all sections. Used by DATA_QUALITY mode and DIAGNOSE mode. Referenced by
 
 ## Report Metadata
 
-**Dataset / Table:** <!-- e.g., project.mart_sales.fact_orders -->
+**Schema / Table:** <!-- e.g., mart_sales.fact_orders -->
 **Pipeline:** <!-- e.g., orders_daily_load -->
 **Report date:** <!-- YYYY-MM-DD -->
 **Run trigger:** <!-- scheduled | ad-hoc | incident investigation -->
@@ -70,7 +70,7 @@ Fill in all sections. Used by DATA_QUALITY mode and DIAGNOSE mode. Referenced by
 |-------|----------|--------|--------|-----------------|
 | `order_status` accepted values | Only known values | | <!-- PASS / FAIL --> | |
 | `total_amount >= 0` | True for all rows | | <!-- PASS / FAIL --> | |
-| `order_date <= CURRENT_DATE()` | No future dates | | <!-- PASS / FAIL --> | |
+| `order_date <= CURRENT_DATE` | No future dates | | <!-- PASS / FAIL --> | |
 | Custom rule: <!-- name --> | | | | |
 
 ### Referential Integrity
@@ -99,7 +99,7 @@ Fill in all sections. Used by DATA_QUALITY mode and DIAGNOSE mode. Referenced by
 | Invalid `order_status` value | | | |
 
 **Total rows quarantined:** <!-- N -->
-**Quarantine table:** <!-- `project.raw_orders.orders__quarantine` -->
+**Quarantine table:** <!-- e.g., `raw_orders__quarantine` -->
 **Next review date:** <!-- YYYY-MM-DD -->
 
 ---
@@ -146,13 +146,13 @@ Fill in all sections. Used by DATA_QUALITY mode and DIAGNOSE mode. Referenced by
 
 ### Short-term (within 1 sprint)
 
-1. <!-- e.g., Add `require_partition_filter = TRUE` to the source table -->
+1. <!-- e.g., Add partition filter enforcement to the source table query -->
 2. <!-- e.g., Add referential integrity dbt test for `product_id` -->
 
 ### Long-term (within 1 quarter)
 
-1. <!-- e.g., Implement Dataplex DQ scans to replace manual SQL assertions -->
-2. <!-- e.g., Add anomaly detection alert to Cloud Monitoring -->
+1. <!-- e.g., Implement automated DQ scans to replace manual SQL assertions -->
+2. <!-- e.g., Add anomaly detection alerting to observability platform -->
 
 ---
 

@@ -41,13 +41,13 @@ CASE_CHECKS: tuple[CaseCheck, ...] = (
     ),
     CaseCheck(
         "TC-E2E-003",
-        "BQ model with cost",
-        ("create table", "partition", "cluster", "require_partition_filter"),
-        any_of_terms=(("$6.25", "6.25/tb", "bytes_scanned"),),
+        "Warehouse model with storage/cost",
+        ("create table", "partition", "cost"),
+        any_of_terms=(("cluster", "index", "sort key"), ("storage", "estimate", "cost")),
     ),
     CaseCheck(
         "TC-E2E-004",
-        "BQ anti-pattern correction",
+        "Warehouse anti-pattern correction",
         ("partition", "cluster"),
         any_of_terms=(("reject", "not recommended", "anti-pattern"),),
     ),
@@ -66,8 +66,11 @@ CASE_CHECKS: tuple[CaseCheck, ...] = (
     CaseCheck(
         "TC-E2E-007",
         "Streaming architecture",
-        ("pub/sub", "dataflow", "dead-letter", "ordering"),
-        any_of_terms=(("exactly-once", "at-least-once"),),
+        ("dead-letter", "ordering"),
+        any_of_terms=(
+            ("exactly-once", "at-least-once"),
+            ("broker", "topic", "kafka", "kinesis", "pulsar"),
+        ),
     ),
     CaseCheck(
         "TC-E2E-008",
@@ -94,9 +97,179 @@ CASE_CHECKS: tuple[CaseCheck, ...] = (
     ),
     CaseCheck(
         "TC-E2E-012",
-        "Cost audit mode",
-        ("cost", "top", "rank"),
-        any_of_terms=(("$6.25", "partition pruning", "bytes_scanned"),),
+        "Data quality mode",
+        ("freshness", "completeness", "uniqueness"),
+        any_of_terms=(
+            ("validity", "integrity"),
+            ("fail", "alert", "quarantine", "log"),
+            ("data quality report", "dq report"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-013",
+        "SQL mode idempotency and performance review",
+        ("idempot", "explain"),
+        any_of_terms=(
+            ("merge", "delete", "insert"),
+            ("correlated", "window", "join"),
+            ("anti-pattern", "not recommended", "fix"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-014",
+        "SPARK mode PySpark job review",
+        ("partition", "shuffle"),
+        any_of_terms=(
+            ("collect", "oom", "driver"),
+            ("udf", "pyspark.sql.functions", "built-in"),
+            ("checkpoint", "checkpointlocation"),
+            ("aqe", "adaptive", "spark.sql.adaptive"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-015",
+        "DATA_MODELING mode star schema design",
+        ("fact", "dimension", "surrogate"),
+        any_of_terms=(
+            ("star schema", "kimball"),
+            ("scd", "slowly changing", "valid_from", "is_current"),
+            ("dim_date", "date dimension"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-016",
+        "SQL mode performance tuning",
+        ("explain", "join", "window"),
+        any_of_terms=(
+            ("partition", "pruning", "predicate"),
+            ("anti-pattern", "not recommended", "fix"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-017",
+        "SQL mode incremental late-arriving handling",
+        ("watermark", "idempot", "merge"),
+        any_of_terms=(
+            ("late-arriving", "backfill"),
+            ("dedup", "upsert"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-018",
+        "SPARK mode skew mitigation",
+        ("skew", "shuffle", "partition"),
+        any_of_terms=(
+            ("salting", "broadcast"),
+            ("aqe", "adaptive"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-019",
+        "SPARK streaming exactly-once guardrails",
+        ("checkpoint", "exactly-once", "dedup"),
+        any_of_terms=(
+            ("watermark", "state"),
+            ("idempot", "upsert"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-020",
+        "DATA_MODELING SCD Type 2 design",
+        ("scd", "valid_from", "is_current"),
+        any_of_terms=(
+            ("surrogate", "dimension"),
+            ("fact", "join"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-021",
+        "DATA_MODELING many-to-many bridge",
+        ("bridge", "factless", "dimension"),
+        any_of_terms=(
+            ("many-to-many", "m2m"),
+            ("grain", "cardinality"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-022",
+        "Schema management additive change",
+        ("backward compatible", "schema", "version"),
+        any_of_terms=(
+            ("optional", "default"),
+            ("contract", "consumer"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-023",
+        "Schema management breaking change",
+        ("breaking change", "migration", "deprecation"),
+        any_of_terms=(
+            ("version", "notice"),
+            ("rollback", "dual-write"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-024",
+        "Deploy strategy canary and rollback",
+        ("canary", "rollback", "runbook"),
+        any_of_terms=(
+            ("deploy", "release"),
+            ("guardrail", "slo"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-025",
+        "Deploy backfill strategy",
+        ("backfill", "idempot", "window"),
+        any_of_terms=(
+            ("throttle", "batch"),
+            ("reconciliation", "checksum"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-026",
+        "Performance optimization for warehouse query",
+        ("explain", "partition", "index"),
+        any_of_terms=(
+            ("bytes scanned", "cost", "storage"),
+            ("materialized view", "cache"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-027",
+        "Performance bottleneck diagnosis",
+        ("bottleneck", "latency", "throughput"),
+        any_of_terms=(
+            ("parallelism", "concurrency"),
+            ("queue", "backpressure"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-028",
+        "Testing strategy design",
+        ("unit test", "integration", "e2e"),
+        any_of_terms=(
+            ("test data", "fixtures"),
+            ("assert", "contract test"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-029",
+        "PR_REVIEW production readiness",
+        ("pass", "fail", "risk"),
+        any_of_terms=(
+            ("request_changes", "approve"),
+            ("security", "cost"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-030",
+        "DIAGNOSE post-deploy incident",
+        ("root cause", "remediation", "postmortem"),
+        any_of_terms=(
+            ("timeline", "blast radius"),
+            ("rollback", "mitigation"),
+        ),
     ),
 )
 

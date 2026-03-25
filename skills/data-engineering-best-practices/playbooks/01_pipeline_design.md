@@ -30,22 +30,22 @@ add complexity when freshness requirements demand it.
 | **Cost budget**      | $                    | $$                    | $$$                    |
 | **Ordering needs**   | Trivial (sorted at rest) | Per-window         | Per-key or global      |
 | **Failure tolerance**| Re-run entire window | Re-run micro-window   | Dead-letter + replay   |
-| **Team skill**       | SQL / Airflow        | SQL + some Beam       | Beam / Flink fluency   |
+| **Team skill**       | SQL / Airflow        | SQL + some stream processing | Flink / Spark Streaming fluency |
 
 ### Quick Decision Flow
 
 ```
 Freshness requirement?
   |
-  +-- > 1 hour ---------> BATCH (Cloud Composer + BQ scheduled queries)
+  +-- > 1 hour ---------> BATCH (Airflow + warehouse scheduled queries)
   |
-  +-- 1 min to 1 hour --> MICRO-BATCH (Composer short-interval DAG
-  |                        or Dataflow batch on cron)
+  +-- 1 min to 1 hour --> MICRO-BATCH (Airflow short-interval DAG
+  |                        or batch stream processor on cron)
   |
   +-- < 1 minute -------> Does transform need multi-source joins?
                              |
                              +-- Yes --> HYBRID (stream ingest, batch transform)
-                             +-- No  --> STREAMING (Pub/Sub -> Dataflow -> BQ)
+                             +-- No  --> STREAMING (broker -> processor -> warehouse)
 ```
 
 **Rule of thumb:** If the stakeholder says "real-time" but the dashboard refreshes
@@ -60,24 +60,24 @@ every 15 minutes, you need micro-batch, not streaming. Push back.
 Best for: SaaS sources where you trust the source schema and transform in-warehouse.
 
 ```
-[ Source API ]                [ BigQuery ]
-  (Salesforce,  ---> GCS ---> raw dataset ---> dbt / scheduled SQL ---> mart
-   HubSpot)         (Avro)
+[ Source API ]                  [ Warehouse ]
+  (Salesforce,  ---> staging ---> raw schema ---> dbt / scheduled SQL ---> mart
+   HubSpot)         storage
 ```
 
-- **GCP tools:** Cloud Functions or Cloud Run for extraction, GCS for landing, BigQuery LOAD jobs.
-- **Orchestration:** Cloud Composer DAG with `GCSToBigQueryOperator`.
-- **Idempotency:** Write to date-partitioned GCS prefix; LOAD job uses `WRITE_TRUNCATE` on partition.
+- **Tools:** API extractor (Airbyte, Fivetran, custom script), object storage for landing, warehouse LOAD job.
+- **Orchestration:** Airflow DAG with appropriate load operator.
+- **Idempotency:** Write to date-partitioned landing prefix; LOAD job uses truncate-and-replace on partition.
 
 ### 2b. ELT (Extract-Load-Transform)
 
 Best for: High-volume sources where raw data must be queryable before transformation.
 
 ```
-[ Source DB ] --CDC/dump--> GCS (Avro/Parquet) --LOAD--> BQ raw --dbt--> BQ curated ---> BQ mart
+[ Source DB ] --CDC/dump--> object storage (Avro/Parquet) --LOAD--> raw --dbt--> curated ---> mart
 ```
 
-- **GCP tools:** Datastream for CDC, `bq load` or Storage Write API for bulk.
+- **Tools:** CDC connector (Debezium, Airbyte) or batch dump + warehouse bulk load.
 - **Idempotency:** Staging tables with MERGE. Never INSERT blindly into curated layer.
 - **Separation of concerns:** Airflow orchestrates; dbt transforms. No SQL in DAG files.
 
@@ -86,10 +86,10 @@ Best for: High-volume sources where raw data must be queryable before transforma
 Use only when: Data must be reshaped before it can land (PII scrubbing, format conversion).
 
 ```
-[ Source ] ---> Dataflow (Batch) ---> GCS (cleaned) ---> BQ
+[ Source ] ---> Spark/Flink (Batch) ---> object storage (cleaned) ---> warehouse
 ```
 
-- **GCP tools:** Dataflow batch (Apache Beam Python/Java), triggered by Composer.
+- **Tools:** Spark batch, triggered by Airflow.
 - **Warning:** ETL hides lineage. Prefer ELT unless regulatory requirements force pre-load transformation.
 
 ---
@@ -99,37 +99,37 @@ Use only when: Data must be reshaped before it can land (PII scrubbing, format c
 ### 3a. Standard Streaming Pipeline
 
 ```
-                                  +---> BQ (Storage Write API)
+                                  +---> Warehouse (bulk streaming sink)
                                   |
-[ Event Source ] --> Pub/Sub --> Dataflow (Beam) --+---> GCS (Avro archive)
+[ Event Source ] --> Broker --> Stream Processor --+---> Object storage (archive)
                       |                           |
-                      |                           +---> Pub/Sub (fan-out)
+                      |                           +---> Secondary topic (fan-out)
                       v
                   Dead-Letter Topic
 ```
 
-- **Pub/Sub:** One topic per event type. Use schema validation on the topic.
-- **Dataflow:** Use `STREAMING` mode with autoscaling. Set `max_num_workers`.
-- **BigQuery:** Prefer Storage Write API over legacy streaming inserts (cheaper, exactly-once).
+- **Broker:** Kafka, Kinesis, Pulsar. One topic per event type. Use schema validation.
+- **Stream processor:** Flink, Spark Streaming, Kafka Streams. Set max parallelism.
+- **Warehouse sink:** Prefer bulk/batch commit (every N seconds) over row-by-row inserts.
 - **Fail loud:** Malformed messages go to dead-letter topic. Alert if DLT depth > 0.
 
 ### 3b. CDC Streaming (Change Data Capture)
 
 ```
-[ Cloud SQL / AlloyDB ] --> Datastream --> Pub/Sub --> Dataflow --> BQ (MERGE)
-         |
-     binlog / WAL
+[ Source DB ] --> CDC connector --> Broker --> Stream Processor --> Warehouse (MERGE)
+    |
+ binlog / WAL
 ```
 
-- Use Datastream for managed CDC. It handles initial snapshot + ongoing changes.
-- MERGE into BQ using the change event's operation type (INSERT/UPDATE/DELETE).
+- Use managed CDC (Debezium, Airbyte CDC). It handles initial snapshot + ongoing changes.
+- MERGE into warehouse using the change event's operation type (INSERT/UPDATE/DELETE).
 - Maintain a `_cdc_sequence` column for ordering guarantees.
 
 ### 3c. Event Sourcing
 
 ```
-[ Microservice ] --> Pub/Sub (event log) --> Dataflow --> BQ (append-only event store)
-                                                 |
+[ Microservice ] --> Broker (event log) --> Stream Processor --> Warehouse (append-only event store)
+                                                     |
                                           Materialize views for current state
 ```
 
@@ -144,11 +144,11 @@ Use only when: Data must be reshaped before it can land (PII scrubbing, format c
 ### 4a. Lambda Architecture (Use with Caution)
 
 ```
-                    +---[ Batch Layer (Composer + BQ) ]---+
-[ Source ] --> GCS -+                                     +--> Serving (BQ views)
-              |     +---[ Speed Layer (Dataflow) ]--------+
+                    +---[ Batch Layer (Airflow + warehouse) ]---+
+[ Source ] --> storage -+                                       +--> Serving (views)
+              |          +---[ Speed Layer (stream processor) ]--+
               |
-           Pub/Sub
+           Broker
 ```
 
 **Why to usually avoid it:** You maintain two codepaths producing the same output.
@@ -158,26 +158,26 @@ real-time is non-negotiable AND you cannot use Kappa.
 ### 4b. Kappa Architecture (Preferred Hybrid)
 
 ```
-[ Source ] --> Pub/Sub --> Dataflow --> BQ (streaming)
+[ Source ] --> Broker --> Stream Processor --> Warehouse (streaming)
                  |
-                 +--> Replay from Pub/Sub (retained messages) or GCS archive
+                 +--> Replay from broker (retained messages) or object storage archive
 ```
 
 - Single codepath for both real-time and reprocessing.
-- Retain Pub/Sub messages for replay window (max 31 days) or archive to GCS.
-- Reprocess by draining Dataflow job, replaying from archive, restarting.
+- Retain broker messages for replay window or archive to object storage.
+- Reprocess by draining the job, replaying from archive, restarting.
 
 ### 4c. Stream Ingest + Batch Reconciliation
 
 The most practical hybrid for teams adopting streaming incrementally.
 
 ```
-[ Source ] --> Pub/Sub --> Dataflow --> BQ streaming table (near real-time)
-                                             |
-Cloud Composer (daily) --------------------> BQ batch table (reconciled, SoR)
-                                             |
-                                     Reconciliation query: compare counts,
-                                     detect gaps, alert on drift > threshold
+[ Source ] --> Broker --> Stream Processor --> Near-real-time table (streaming)
+                                                     |
+Airflow (daily) ------------------------------------> Batch table (reconciled, SoR)
+                                                     |
+                                             Reconciliation query: compare counts,
+                                             detect gaps, alert on drift > threshold
 ```
 
 - Streaming table serves dashboards with < 1 min latency.
@@ -188,14 +188,14 @@ Cloud Composer (daily) --------------------> BQ batch table (reconciled, SoR)
 
 ## 5. Source-Specific Ingestion Guidance
 
-| Source Type       | Example              | Recommended Pattern     | GCP Tools                                | Key Consideration                        |
+| Source Type       | Example              | Recommended Pattern     | Tools                                    | Key Consideration                        |
 |-------------------|----------------------|-------------------------|------------------------------------------|------------------------------------------|
-| **REST API**      | Salesforce, Stripe   | Batch EL, daily/hourly  | Cloud Run + Composer                     | Paginate fully; store cursor in GCS      |
-| **Database (CDC)**| Cloud SQL, Postgres  | CDC streaming or daily dump | Datastream, Dataflow                  | CDC for freshness; dump for simplicity   |
-| **Database (bulk)**| MySQL, Oracle       | Batch ELT, daily        | `bq load`, Dataflow batch               | Full vs incremental: use watermark column|
-| **File drop (GCS)**| Partner CSV/Parquet | Event-driven EL         | Cloud Functions + Composer (trigger DAG) | Validate schema on landing; quarantine bad files |
-| **Event stream**  | App events, IoT     | Streaming                | Pub/Sub + Dataflow + BQ                  | Schema registry on Pub/Sub topic         |
-| **Webhook**       | GitHub, Slack events | Micro-batch             | Cloud Run (buffer to Pub/Sub) + Dataflow | Never write directly to BQ from webhook handler |
+| **REST API**      | Salesforce, Stripe   | Batch EL, daily/hourly  | Custom extractor + Airflow               | Paginate fully; store cursor in state    |
+| **Database (CDC)**| Postgres, MySQL      | CDC streaming or daily dump | Debezium, Airbyte CDC               | CDC for freshness; dump for simplicity   |
+| **Database (bulk)**| MySQL, Oracle       | Batch ELT, daily        | Warehouse bulk load                      | Full vs incremental: use watermark column|
+| **File drop**     | Partner CSV/Parquet  | Event-driven EL         | File sensor + Airflow (trigger DAG)      | Validate schema on landing; quarantine bad files |
+| **Event stream**  | App events, IoT     | Streaming                | Kafka + Flink/Spark Streaming            | Schema registry on broker topic          |
+| **Webhook**       | GitHub, Slack events | Micro-batch             | Buffer to broker + stream processor      | Never write directly to warehouse from webhook handler |
 
 ---
 
@@ -213,7 +213,7 @@ Every pipeline must flow through these layers. No shortcuts from raw to mart.
 
 ### Layer Definitions
 
-| Layer       | BQ Dataset Naming    | Description                                    | Retention   | Access           |
+| Layer       | Schema Naming        | Description                                    | Retention   | Access           |
 |-------------|----------------------|------------------------------------------------|-------------|------------------|
 | **Raw**     | `raw_{source}`       | Exact copy of source data. Append-only. Never modify. | 90 days+   | Data eng only    |
 | **Staging** | `stg_{source}`       | Deduped, type-cast, renamed. Still 1:1 with source. | 30 days    | Data eng only    |
@@ -222,7 +222,7 @@ Every pipeline must flow through these layers. No shortcuts from raw to mart.
 
 ### Naming Conventions
 
-- Tables: `{layer}_{source}_{entity}` -- e.g., `raw_salesforce_opportunities`
+- Tables: `{layer}_{source}_{entity}` — e.g., `raw_salesforce_opportunities`
 - Partitioned by: `_partition_date` (ingestion) or natural date column
 - Staging dedup key column: `_row_hash` (SHA256 of business key columns)
 - CDC tracking: `_loaded_at`, `_updated_at`, `_is_deleted`
@@ -234,16 +234,16 @@ Every pipeline must flow through these layers. No shortcuts from raw to mart.
 ### Standard Batch Pipeline
 
 ```
-+-------------+     +-------+     +---------+     +-----------+     +----------+
-|   Source     |     |  GCS  |     |   BQ    |     |    BQ     |     |    BQ    |
-| (API / DB / |---->| raw/  |---->| raw_*   |---->| stg_*     |---->| mart_*   |
-|  File)       |     | avro/ |     | dataset |     | dataset   |     | dataset  |
-+-------------+     +-------+     +---------+     +-----------+     +----------+
-       |                |               |                |                |
-   [Cloud Run]    [GCS trigger]   [LOAD job]        [dbt run]       [dbt run]
-       |                |               |                |                |
-       +--- Cloud Composer DAG orchestrates all steps, with retries ------+
-                                        |
++-------------+     +----------+     +---------+     +-----------+     +----------+
+|   Source     |     | Object   |     | Whouse  |     | Whouse    |     | Whouse   |
+| (API / DB / |---->| Storage  |---->| raw_*   |---->| stg_*     |---->| mart_*   |
+|  File)       |     | (landing)|     | schema  |     | schema    |     | schema   |
++-------------+     +----------+     +---------+     +-----------+     +----------+
+       |                |                 |                |                |
+   [Extractor]    [file trigger]    [LOAD job]        [dbt run]       [dbt run]
+       |                |                 |                |                |
+       +--- Airflow DAG orchestrates all steps, with retries ---------------+
+                                          |
                                   [Row count checks at each boundary]
 ```
 
@@ -251,8 +251,8 @@ Every pipeline must flow through these layers. No shortcuts from raw to mart.
 
 ```
 +-------------+     +---------+     +----------+     +---------+     +----------+
-| Event Source |     | Pub/Sub |     | Dataflow |     |   BQ    |     |    BQ    |
-| (App / IoT  |---->|  Topic  |---->| Streaming|---->| raw_*   |---->| cur_*    |
+| Event Source |     | Broker  |     | Stream   |     | Whouse  |     | Whouse   |
+| (App / IoT  |---->|  Topic  |---->| Processor|---->| raw_*   |---->| cur_*    |
 |  / CDC)      |     |         |     |  Job     |     | (stream)|     | (sched.) |
 +-------------+     +---------+     +----------+     +---------+     +----------+
                          |               |                                 |
@@ -270,13 +270,13 @@ Every pipeline must flow through these layers. No shortcuts from raw to mart.
 
 ### Retry Strategy
 
-| Component        | Retries | Backoff                  | Max Delay   |
-|------------------|---------|--------------------------|-------------|
-| Airflow task     | 3       | Exponential with jitter  | 30 minutes  |
-| API extraction   | 5       | Exponential (2^n * 1s)   | 5 minutes   |
-| BQ load job      | 3       | Linear (60s intervals)   | 3 minutes   |
-| Dataflow (streaming) | Infinite (built-in) | Managed by runner | N/A   |
-| Pub/Sub push     | Use Pub/Sub native retry | Exponential    | 600 seconds |
+| Component           | Retries | Backoff                  | Max Delay   |
+|---------------------|---------|--------------------------|-------------|
+| Airflow task        | 3       | Exponential with jitter  | 30 minutes  |
+| API extraction      | 5       | Exponential (2^n * 1s)   | 5 minutes   |
+| Warehouse load job  | 3       | Linear (60s intervals)   | 3 minutes   |
+| Stream processor    | Infinite (built-in) | Managed by runner | N/A   |
+| Broker push         | Use broker native retry | Exponential    | 600 seconds |
 
 ### Dead-Letter Pattern
 
@@ -291,7 +291,7 @@ Main Topic --> Subscription --> Processing --> Success
                                     [Manual inspect + replay]
 ```
 
-- Every Pub/Sub subscription must have a dead-letter topic configured.
+- Every broker subscription must have a dead-letter topic configured.
 - Monitor DLT message count. Alert threshold: > 0 messages.
 - DLT messages retain original attributes + error reason.
 
@@ -299,7 +299,7 @@ Main Topic --> Subscription --> Processing --> Success
 
 When a source is consistently failing, stop hammering it:
 
-1. Track consecutive failures in Airflow Variable or GCS state file.
+1. Track consecutive failures in Airflow Variable or state store.
 2. After 3 consecutive failures, mark circuit as OPEN. Skip extraction, alert team.
 3. After 1 hour cooldown, try a single probe request. If success, close circuit.
 4. Log every state transition for audit.
@@ -309,15 +309,15 @@ When a source is consistently failing, stop hammering it:
 Run daily reconciliation for every pipeline:
 
 ```sql
--- Compare source count vs BQ landing count
+-- Compare source count vs warehouse landing count
 SELECT
-  DATE(loaded_at) AS load_date,
+  DATE(loaded_at)    AS load_date,
   source_system,
   source_row_count,
-  bq_row_count,
-  ABS(source_row_count - bq_row_count) AS drift,
-  SAFE_DIVIDE(ABS(source_row_count - bq_row_count), source_row_count) AS drift_pct
-FROM `project.ops.reconciliation_log`
+  warehouse_row_count,
+  ABS(source_row_count - warehouse_row_count)                       AS drift,
+  ABS(source_row_count - warehouse_row_count) / source_row_count    AS drift_pct
+FROM ops.reconciliation_log
 WHERE drift_pct > 0.001  -- Alert on > 0.1% drift
 ```
 
@@ -330,82 +330,28 @@ WHERE drift_pct > 0.001  -- Alert on > 0.1% drift
 | Metric                    | Formula                                              | Example                  |
 |---------------------------|------------------------------------------------------|--------------------------|
 | **Daily ingest volume**   | rows/day * avg_row_bytes                             | 50M * 500B = 25 GB/day  |
-| **Monthly BQ storage**    | daily_volume * 30 * compression_ratio (0.3 for columnar) | 25 * 30 * 0.3 = 225 GB |
-| **BQ storage cost**       | active: $0.02/GB/mo, long-term: $0.01/GB/mo         | 225 * $0.02 = $4.50/mo  |
-| **BQ query cost (on-demand)** | bytes_scanned * $6.25/TB                        | 10 GB scan = $0.0625    |
-| **Dataflow (batch)**      | vCPU-hr * $0.056 + GB-hr * $0.003                   | 4 vCPU * 0.5hr = $0.112 |
-| **Dataflow (streaming)**  | vCPU-hr * $0.069 + GB-hr * $0.003 (24/7)            | 2 vCPU * 720hr = $99/mo |
-| **Pub/Sub**               | $40/TiB ingested                                     | 25 GB/day = ~$30/mo     |
-| **Composer (small)**      | ~$350-500/mo (environment baseline)                  | Fixed cost               |
+| **Monthly storage**       | daily_volume * 30 * compression_ratio (0.3 columnar) | 25 * 30 * 0.3 = 225 GB |
+| **Query cost (on-demand)**| bytes_scanned * warehouse_per_TB_rate                | 10 GB scan * $5/TB = $0.05 |
+| **Stream processor**      | vCPU-hr * rate + GB-hr * rate                        | Platform-dependent      |
+| **Broker throughput**     | ingest_GB/day * broker_rate                          | Platform-dependent      |
 
 ### Scaling Thresholds
 
 | Indicator                         | Threshold            | Action                              |
 |-----------------------------------|----------------------|-------------------------------------|
-| BQ slot utilization               | > 80% sustained      | Switch to reserved slots / editions |
-| Dataflow worker CPU               | > 70% sustained      | Increase `max_num_workers`          |
-| Composer DAG parse time           | > 30 seconds         | Split DAG files, reduce top-level code |
-| Pub/Sub oldest unacked message    | > 10 minutes         | Scale Dataflow consumers            |
-| GCS landing zone size             | > 1 TB unprocessed   | Investigate stuck pipeline          |
+| Warehouse slot/concurrency utilization | > 80% sustained | Switch to reserved capacity         |
+| Stream processor CPU              | > 70% sustained      | Increase max parallelism            |
+| Airflow DAG parse time            | > 30 seconds         | Split DAG files, reduce top-level code |
+| Broker oldest unacked message     | > 10 minutes         | Scale stream processor consumers    |
+| Landing zone size                 | > 1 TB unprocessed   | Investigate stuck pipeline          |
 
 ### Right-Sizing Checklist
 
-1. Start with the smallest Composer environment. Scale only when parse times degrade.
-2. Use Dataflow autoscaling with `max_num_workers` cap. Never leave it unlimited.
-3. Use BQ on-demand until monthly spend exceeds flat-rate break-even (~$10K/mo for 500 slots).
-4. Archive raw data to GCS Coldline after 90 days. Use BQ external tables if ad-hoc access is needed.
-5. Set Pub/Sub message retention to the minimum acceptable replay window (default 7 days, max 31).
-
----
-
-## 10. GCP-Native Tool Selection Guide
-
-This section covers newer and specialist GCP tools that complement the core stack (BQ + Composer + Pub/Sub + Dataflow).
-
-### DataForm vs dbt
-
-| Criteria | dbt Core + Composer | DataForm |
-|---|---|---|
-| Infrastructure | You manage the runtime | Fully managed by GCP |
-| Orchestration | Airflow | Built-in Dataform schedules |
-| Lineage | dbt docs (manual setup) | Native Dataplex integration |
-| Testing | Schema YAML tests | SQLX `assertions {}` blocks |
-| Best for | Teams already on Airflow | Greenfield GCP-native teams |
-
-Use DataForm when: greenfield project, team has no Airflow experience, and you want native Dataplex lineage without additional tooling.
-Use dbt when: team already operates Composer, or you need rich open-source plugin ecosystem.
-
-### Dataplex for Governance
-
-Attach Dataplex to every new data domain:
-
-```
-Dataplex Lake (domain: "sales")
-  ├── Raw Zone     → attaches raw_salesforce BQ dataset + gs://raw/salesforce/ GCS bucket
-  ├── Curated Zone → attaches cur_sales BQ dataset
-  └── Mart Zone    → attaches mart_revenue BQ dataset
-```
-
-Dataplex provides:
-- Unified data catalog across BQ + GCS + external sources
-- Automated data profiling (row counts, null rates, cardinality)
-- DQ scans without writing assertion SQL (see playbook 07)
-- Column-level lineage for BQ jobs and DataForm executions
-- Policy enforcement (data classification, access controls)
-
-**Set up Dataplex assets before the pipeline goes to production, not as an afterthought.**
-
-### Vertex AI Pipelines vs Airflow for ML Workflows
-
-| Scenario | Use Airflow (Composer) | Use Vertex AI Pipelines |
-|---|---|---|
-| ML training is one step in a larger DE pipeline | Yes | No |
-| Workflow is purely ML (data prep → train → evaluate → deploy) | No | Yes |
-| Team is primarily data engineers | Yes | Maybe |
-| Team is primarily ML engineers | Maybe | Yes |
-| Need BQ feature store integration | Both work | Native integration |
-
-**Do not mix:** If you have a Composer DAG that orchestrates DE steps and ML steps, split it. ML steps live in Vertex AI Pipelines (called from a Composer task via `VertexAIPipelineJobTrigger`).
+1. Start with the smallest Airflow environment. Scale only when parse times degrade.
+2. Use stream processor autoscaling with a max workers cap. Never leave it unlimited.
+3. Use on-demand warehouse compute until monthly spend justifies reserved capacity.
+4. Archive raw data to cold object storage after 90 days.
+5. Set broker message retention to the minimum acceptable replay window.
 
 ---
 
@@ -415,7 +361,7 @@ Dataplex provides:
 - [ ] Architecture pattern selected from this playbook with rationale
 - [ ] Data contract YAML filled out (see `../templates/data_contract.yaml`)
 - [ ] All four landing zones (raw/stg/cur/mart) defined with naming conventions
-- [ ] Idempotency mechanism specified (MERGE / WRITE_TRUNCATE / dedup key)
+- [ ] Idempotency mechanism specified (MERGE / truncate+replace / dedup key)
 - [ ] Retry and dead-letter strategy configured
 - [ ] Row-count reconciliation query scheduled
 - [ ] Capacity estimate completed with monthly cost projection

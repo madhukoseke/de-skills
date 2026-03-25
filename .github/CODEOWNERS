@@ -1,0 +1,9 @@
+# Global owner — all files
+* @madhukoseke
+
+# Skill entry point — require explicit review on changes
+skills/data-engineering-best-practices/SKILL.md @madhukoseke
+
+# Security and community health files
+SECURITY.md @madhukoseke
+CODE_OF_CONDUCT.md @madhukoseke

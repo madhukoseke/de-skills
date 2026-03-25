@@ -1,7 +1,7 @@
 ---
 title: "dbt Patterns"
-description: "Model structure, materializations, testing, dbt+Airflow integration, DataForm comparison"
-tags: [dbt, dataform, transformation, materialization, testing, bigquery]
+description: "Model structure, materializations, testing, dbt+Airflow integration"
+tags: [dbt, transformation, materialization, testing, sql-warehouse]
 related_templates:
   - ../templates/dbt_model_review.md
   - ../templates/data_contract.yaml
@@ -14,20 +14,20 @@ related_templates:
 
 ---
 
-## 1. When to Use dbt vs DataForm vs Scheduled Queries
+## 1. When to Use dbt vs Scheduled Queries
 
 Choose your transformation tool before writing a single line of SQL.
 
-| Criteria | dbt Core + Composer | dbt Cloud | DataForm (native BQ) | BQ Scheduled Queries |
-|---|---|---|---|---|
-| **Version control** | Git (full control) | Git (managed) | Git (in GCP) | None (anti-pattern) |
-| **Testing framework** | Built-in + custom | Built-in + custom | Assertions (similar) | Manual only |
-| **Lineage** | dbt docs + manifest | dbt docs + manifest | Dataplex integration | None |
-| **CI/CD** | Cloud Build / GitHub Actions | dbt Cloud CI | Cloud Build | None |
-| **Orchestration** | Airflow triggers dbt CLI | dbt Cloud scheduler | Dataform schedules | BQ scheduler |
-| **Best for** | Teams already on Airflow | Teams wanting managed infra | Teams fully on GCP native | Ad-hoc or simple transforms only |
+| Criteria | dbt Core + Airflow | dbt Cloud | Warehouse Scheduled Queries |
+|---|---|---|---|
+| **Version control** | Git (full control) | Git (managed) | None (anti-pattern) |
+| **Testing framework** | Built-in + custom | Built-in + custom | Manual only |
+| **Lineage** | dbt docs + manifest | dbt docs + manifest | None |
+| **CI/CD** | Your own pipeline | dbt Cloud CI | None |
+| **Orchestration** | Airflow triggers dbt CLI | dbt Cloud scheduler | Warehouse scheduler |
+| **Best for** | Teams already on Airflow | Teams wanting managed infra | Ad-hoc or simple transforms only |
 
-**Rule of thumb:** If your team has Airflow, use dbt Core. If you are greenfield on GCP and want minimal ops overhead, evaluate DataForm. Never use BQ Scheduled Queries as your primary transformation layer — they have no testing, no lineage, and no versioning.
+**Rule of thumb:** If your team has Airflow, use dbt Core. Never use warehouse scheduled queries as your primary transformation layer — they have no testing, no lineage, and no versioning.
 
 ---
 
@@ -77,7 +77,7 @@ dbt_project/
 
 ## 3. Materialization Strategy
 
-Choosing the wrong materialization is the most common dbt mistake on BigQuery.
+Choosing the wrong materialization is the most common dbt mistake on any warehouse.
 
 ### Decision Tree
 
@@ -88,7 +88,7 @@ Is the model a mart or fact table consuming large volumes?
 │         └── NO  → table (full refresh, acceptable if <2h runtime)
 └── NO  → Is it a staging or intermediate model?
           ├── YES, staging → view (recomputed on query, no storage cost)
-          └── YES, intermediate → ephemeral (inlined into downstream SQL, no BQ table)
+          └── YES, intermediate → ephemeral (inlined into downstream SQL, no table)
 ```
 
 ### Materialization Reference
@@ -100,7 +100,7 @@ Is the model a mart or fact table consuming large volumes?
 | `incremental` | Full | Fast | Large fact tables, event tables | Complex dedup logic that is hard to get right |
 | `ephemeral` | None | Inlined into SQL | CTEs you want to reuse across models | When you need the output as a standalone table |
 
-### Incremental Models: BigQuery-Specific Config
+### Incremental Models
 
 ```sql
 {{
@@ -108,12 +108,6 @@ Is the model a mart or fact table consuming large volumes?
     materialized = 'incremental',
     incremental_strategy = 'merge',
     unique_key = 'order_id',
-    partition_by = {
-      'field': 'order_date',
-      'data_type': 'date',
-      'granularity': 'day'
-    },
-    cluster_by = ['customer_id', 'order_status'],
     on_schema_change = 'append_new_columns'
   )
 }}
@@ -134,7 +128,7 @@ FROM {{ ref('stg_orders') }}
 ```
 
 **Critical details:**
-- Always include the partition column in the incremental filter. Without it, dbt scans the entire target table on every run.
+- Always include a time-based filter in the `is_incremental()` block. Without it, dbt scans the entire target table on every run.
 - `on_schema_change = 'append_new_columns'` prevents silent failures when source adds columns.
 - `unique_key` must be the business key, not a surrogate. Composite keys are supported: `unique_key = ['order_id', 'order_date']`.
 
@@ -176,7 +170,7 @@ version: 2
 
 models:
   - name: fact_orders
-    description: "One row per order. Partitioned by order_date."
+    description: "One row per order."
     config:
       contract:
         enforced: true   # enforce column types defined in this file
@@ -219,7 +213,6 @@ version: 2
 
 sources:
   - name: raw_orders
-    database: my-project
     schema: raw_orders
     freshness:
       warn_after: {count: 6, period: hour}
@@ -271,12 +264,12 @@ Use `error` for structural invariants (unique, not_null on keys). Use `warn` for
 
 ## 5. dbt + Airflow Integration
 
-### Pattern: Airflow triggers dbt CLI in Cloud Run or Composer worker
+### Pattern: Airflow triggers dbt CLI
 
 ```
-Composer DAG
+Airflow DAG
   │
-  ├── [extract task] → GCS → BQ raw
+  ├── [extract task] → object storage → warehouse raw
   │
   ├── [dbt source freshness] ← verify upstream is not stale
   │
@@ -293,11 +286,10 @@ Composer DAG
 
 ```python
 from airflow import DAG
-from airflow.providers.google.cloud.operators.kubernetes_engine import GKEStartPodOperator
 from airflow.operators.bash import BashOperator
 from datetime import timedelta
 
-DBT_PROJECT_DIR = "/opt/airflow/dbt/my_project"
+DBT_PROJECT_DIR  = "/opt/airflow/dbt/my_project"
 DBT_PROFILES_DIR = "/opt/airflow/dbt"
 
 with DAG(
@@ -343,7 +335,7 @@ with DAG(
 
 **Key rules:**
 - Always run `dbt test` immediately after `dbt run` for the same selector. A successful run that produces bad data is worse than a failed run.
-- Use `--target prod` explicitly. Never rely on default profile targets in CI or Composer.
+- Use `--target prod` explicitly. Never rely on default profile targets in CI or Airflow.
 - Separate staging and mart runs so a mart failure does not prevent staging from completing (other DAGs may depend on staging).
 
 ### dbt + Airflow: Dataset-Aware Scheduling (Airflow 2.4+)
@@ -354,9 +346,9 @@ For loose coupling between extraction DAGs and transformation DAGs:
 from airflow.datasets import Dataset
 
 # In extraction DAG — marks dataset as updated
-raw_orders_dataset = Dataset("bigquery://my-project/raw_orders/orders")
+raw_orders_dataset = Dataset("warehouse://my_schema/raw_orders/orders")
 
-extract_task = BigQueryInsertJobOperator(
+extract_task = SQLExecuteQueryOperator(
     task_id="load_raw_orders",
     outlets=[raw_orders_dataset],  # signals: raw orders are fresh
     ...
@@ -385,36 +377,39 @@ my_project:
   target: dev
   outputs:
     dev:
-      type: bigquery
-      method: oauth
-      project: my-project-dev
-      dataset: "{{ env_var('DBT_SCHEMA', 'dbt_' ~ env_var('DBT_USER', 'dev')) }}"
+      type: snowflake        # or redshift, databricks, postgres, etc.
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      database: my_project_dev
+      schema: "{{ env_var('DBT_SCHEMA', 'dbt_' ~ env_var('DBT_USER', 'dev')) }}"
+      warehouse: dev_warehouse
       threads: 4
-      timeout_seconds: 300
-      location: US
 
     staging:
-      type: bigquery
-      method: service-account
-      project: my-project-staging
-      dataset: "{{ var('target_dataset') }}"
-      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      database: my_project_staging
+      schema: "{{ var('target_dataset') }}"
+      warehouse: staging_warehouse
       threads: 8
-      location: US
 
     prod:
-      type: bigquery
-      method: service-account
-      project: my-project-prod
-      dataset: "{{ var('target_dataset') }}"
-      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS') }}"
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
+      database: my_project_prod
+      schema: "{{ var('target_dataset') }}"
+      warehouse: prod_warehouse
       threads: 16
-      location: US
 ```
 
 ### generate_schema_name macro (Principle 10: Environments must be code-identical)
 
-Override dbt's default schema naming to route models to the correct BQ dataset per environment:
+Override dbt's default schema naming to route models to the correct schema per environment:
 
 ```sql
 -- macros/generate_schema_name.sql
@@ -444,65 +439,7 @@ This ensures `models/marts/core/fact_orders.sql` lands in:
 
 ---
 
-## 7. DataForm: GCP-Native Alternative
-
-DataForm is Google's managed SQL transformation tool, natively integrated into BigQuery. Use it when your team does not operate Airflow and wants zero infrastructure overhead.
-
-### Key Differences vs dbt
-
-| Feature | dbt Core | DataForm |
-|---|---|---|
-| Language | Jinja2 + SQL | SQLX (JS templating + SQL) |
-| Runtime | CLI / Airflow | Managed by GCP |
-| Testing | `data_tests:` in YAML | `assertions {}` blocks in SQLX |
-| Lineage | dbt docs graph | Native Dataplex integration |
-| CI/CD | Your own pipeline | Built into GCP console + Cloud Build |
-| Scheduler | External (Airflow) | Built-in Dataform schedules |
-| Cost | OSS (infra cost only) | Included in BQ (no separate cost) |
-
-### SQLX Model Example
-
-```sqlx
--- definitions/orders/fact_orders.sqlx
-config {
-  type: "incremental",
-  schema: "marts_core",
-  description: "One row per order, partitioned by order_date",
-  bigquery: {
-    partitionBy: "order_date",
-    clusterBy: ["customer_id", "order_status"],
-    requirePartitionFilter: true
-  },
-  uniqueKey: ["order_id"]
-}
-
-SELECT
-  order_id,
-  customer_id,
-  DATE(order_timestamp) AS order_date,
-  order_status,
-  total_amount,
-  updated_at
-FROM ${ref("stg_orders")}
-
-${ when(incremental(), `WHERE updated_at > (SELECT MAX(updated_at) FROM ${self()})`) }
-
-post_operations {
-  ASSERT (SELECT COUNT(*) FROM ${self()} WHERE order_id IS NULL) = 0
-    AS "order_id must not be null"
-}
-```
-
-### When to Choose DataForm over dbt
-
-- You want native Dataplex lineage without additional tooling.
-- Your team has no Airflow experience and does not want to operate it.
-- You are prototyping quickly and want scheduling built in.
-- You are fully committed to GCP and have no multi-cloud requirements.
-
----
-
-## 8. Lineage Documentation (Principle 9)
+## 7. Lineage Documentation (Principle 9)
 
 Every dbt model must document its lineage via `ref()` and `source()`. Never hardcode table paths.
 
@@ -514,23 +451,23 @@ JOIN {{ ref('stg_customers') }} c ON o.customer_id = c.customer_id
 
 -- WRONG: lineage is invisible to dbt
 SELECT o.*, c.customer_name
-FROM `my-project.raw_orders.orders` o
-JOIN `my-project.raw_customers.customers` c ON o.customer_id = c.customer_id
+FROM raw_orders.orders o
+JOIN raw_customers.customers c ON o.customer_id = c.customer_id
 ```
 
 Run `dbt docs generate && dbt docs serve` after every significant model addition to verify the DAG graph is connected and there are no orphaned models.
 
 ---
 
-## 9. Anti-Patterns
+## 8. Anti-Patterns
 
 | Anti-Pattern | Problem | Fix |
 |---|---|---|
 | `SELECT *` in a dbt model | Propagates unwanted columns, breaks contract | Explicitly list columns |
 | No `unique` + `not_null` tests on primary keys | Duplicates or NULLs silently enter marts | Add tests to every model's primary key |
-| Hardcoded project/dataset paths | Breaks across environments | Use `ref()` and `source()` always |
+| Hardcoded schema/database paths | Breaks across environments | Use `ref()` and `source()` always |
 | Business logic in staging models | Violates separation; staging should be 1:1 with source | Move joins and logic to intermediate layer |
-| Incremental model without partition filter in `is_incremental()` block | Full table scan on every run | Always filter on the partition column |
+| Incremental model without time filter in `is_incremental()` block | Full table scan on every run | Always filter on the updated-at or partition column |
 | Running `dbt run` without `dbt test` in CI | Bad data reaches production | CI pipeline must run both, in order |
 | `dbt run --full-refresh` in production without safeguard | Truncates production tables | Gate full-refresh behind an approval step |
 | Large ephemeral models used in many downstream models | Inline SQL explosion, query cost multiplies | Promote to `view` or `table` if referenced >2 times |
@@ -546,7 +483,7 @@ Before merging any dbt model change:
 - [ ] Column-level tests defined (`unique`, `not_null` on primary key at minimum)
 - [ ] Source freshness is configured for any new source
 - [ ] Materialization is appropriate for the layer (view for staging, table/incremental for marts)
-- [ ] Incremental model includes partition filter in `is_incremental()` block
+- [ ] Incremental model includes time filter in `is_incremental()` block
 - [ ] `on_schema_change` is set (prefer `append_new_columns` over `ignore`)
 - [ ] `dbt test` passes in CI before merge
 - [ ] Model is documented with a description in the YAML schema file

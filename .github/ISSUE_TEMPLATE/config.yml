@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or Discussion
+    url: https://github.com/madhukoseke/de-skills/discussions
+    about: Ask questions or discuss the skill here instead of opening an issue
