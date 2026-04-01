@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "canonical_instruction_file": "SKILL.md",
+  "providers": {
+    "openai": {
+      "adapter_file": "agents/openai.yaml",
+      "build_output_dir": "dist/openai",
+      "display_name": "OpenAI / Codex",
+      "prompt_channel": "system",
+      "api_family": "responses",
+      "live_benchmark_supported": true,
+      "api_key_env": "OPENAI_API_KEY",
+      "model_env": "OPENAI_MODEL"
+    },
+    "anthropic": {
+      "adapter_file": "agents/anthropic.yaml",
+      "build_output_dir": "dist/anthropic",
+      "display_name": "Anthropic / Claude",
+      "prompt_channel": "system",
+      "api_family": "messages",
+      "live_benchmark_supported": true,
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "model_env": "ANTHROPIC_MODEL"
+    },
+    "gemini": {
+      "adapter_file": "agents/gemini.yaml",
+      "build_output_dir": "dist/gemini",
+      "display_name": "Google Gemini",
+      "prompt_channel": "system_instruction",
+      "api_family": "generateContent",
+      "live_benchmark_supported": true,
+      "api_key_env": "GEMINI_API_KEY",
+      "model_env": "GEMINI_MODEL"
+    },
+    "generic": {
+      "adapter_file": "agents/generic.yaml",
+      "build_output_dir": "dist/generic",
+      "display_name": "Generic LLM Runtime",
+      "prompt_channel": "system_or_developer",
+      "api_family": "text_only",
+      "live_benchmark_supported": false,
+      "api_key_env": "",
+      "model_env": ""
+    }
+  }
+}

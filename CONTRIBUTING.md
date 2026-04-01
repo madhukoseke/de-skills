@@ -8,6 +8,7 @@ Contributions that are welcome:
 - Fixes to incorrect, outdated, or misleading content in playbooks or templates
 - New playbooks for data engineering patterns not yet covered
 - New templates for modes that lack structured output
+- New agent adapter metadata under `skills/data-engineering-best-practices/agents/`
 - CI/test harness improvements
 - Clarity improvements to existing content
 
@@ -33,13 +34,14 @@ Out of scope (open an issue to discuss first):
 
 ## Skill Structure
 
-The skill lives under `skills/data-engineering-best-practices/`:
+The canonical skill lives under `skills/data-engineering-best-practices/`:
 
 ```
 skills/data-engineering-best-practices/
-├── SKILL.md              # Entry point — required frontmatter: name, description
+├── SKILL.md              # Canonical entry point — required frontmatter: name, description
+├── agents/               # Product-specific adapter metadata (for example openai.yaml)
 ├── playbooks/            # Procedural guidance (numbered for ordering)
-└── templates/           # Output templates (YAML, Markdown)
+└── templates/            # Output templates (YAML, Markdown)
 ```
 
 ### SKILL.md Requirements
@@ -47,6 +49,14 @@ skills/data-engineering-best-practices/
 - **Frontmatter:** Must include `name` and `description` (required by agent skill loaders).
 - **Optional:** `metadata.version`, `metadata.tags`, `license`.
 - **Links:** Use paths relative to the skill root (e.g. `playbooks/01_pipeline_design.md`, `templates/runbook.md`).
+- **Vendor neutrality:** Do not mention specific model providers or products in `SKILL.md`, playbooks, or templates unless the file is explicitly an adapter artifact under `agents/`.
+
+### Agents
+
+- Use `agents/` only for product-specific metadata or thin adapter files derived from the canonical skill.
+- Do not fork the domain guidance across adapters; `SKILL.md` remains the source of truth.
+- If adapter metadata becomes stale after updating `SKILL.md`, regenerate or update it in the same change.
+- After changing canonical skill content or provider metadata, run `python3 scripts/build_adapters.py` and commit the updated `dist/` artifacts.
 
 ### Playbooks
 
@@ -80,6 +90,20 @@ When writing or editing a playbook:
 
 ```bash
 tests/run_e2e_harness.sh
+```
+
+- Validate adapter manifests and generated artifacts:
+
+```bash
+python3 scripts/build_adapters.py --check
+python3 tests/validate_adapters.py
+python3 tests/validate_provider_fixtures.py
+```
+
+- Validate example and provider transport scripts:
+
+```bash
+python3 -m py_compile examples/*.py tests/benchmark/live/providers/*.py
 ```
 
 - Run benchmark quality checks (skill vs baseline):

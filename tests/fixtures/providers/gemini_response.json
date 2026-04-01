@@ -1,0 +1,13 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "## Summary\nUse explicit checks and rollback.\n\n## Decision\nDeploy with canary and monitoring.\n\n## Rationale\nThis reduces blast radius.\n\n## Trade-offs\n| Option | Pros | Cons | When to Use |\n|---|---|---|---|\n| Canary | Safer | Slower rollout | Production changes |\n\n## Next Steps\n1. Define SLOs.\n2. Add rollback guardrails.\n"
+          }
+        ]
+      }
+    }
+  ]
+}

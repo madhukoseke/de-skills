@@ -1,0 +1,11 @@
+{
+  "id": "msg_test",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    {
+      "type": "text",
+      "text": "## Summary\nPrefer a warehouse MERGE.\n\n## Decision\nUse an incremental load.\n\n## Rationale\nThis is idempotent and easier to reconcile.\n\n## Trade-offs\n| Option | Pros | Cons | When to Use |\n|---|---|---|---|\n| Incremental | Efficient | More logic | Large tables |\n\n## Next Steps\n1. Add staging.\n2. Add tests.\n"
+    }
+  ]
+}

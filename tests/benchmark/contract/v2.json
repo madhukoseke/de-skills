@@ -1,0 +1,69 @@
+{
+  "contract_version": "v2",
+  "frozen_on": "2026-03-30",
+  "description": "Benchmark contract v2 for skill vs no-skill comparison with expanded quality dimensions.",
+  "case_ids": [
+    "TC-E2E-001",
+    "TC-E2E-002",
+    "TC-E2E-003",
+    "TC-E2E-004",
+    "TC-E2E-005",
+    "TC-E2E-006",
+    "TC-E2E-007",
+    "TC-E2E-008",
+    "TC-E2E-009",
+    "TC-E2E-010",
+    "TC-E2E-011",
+    "TC-E2E-012",
+    "TC-E2E-013",
+    "TC-E2E-014",
+    "TC-E2E-015",
+    "TC-E2E-016",
+    "TC-E2E-017",
+    "TC-E2E-018",
+    "TC-E2E-019",
+    "TC-E2E-020",
+    "TC-E2E-021",
+    "TC-E2E-022",
+    "TC-E2E-023",
+    "TC-E2E-024",
+    "TC-E2E-025",
+    "TC-E2E-026",
+    "TC-E2E-027",
+    "TC-E2E-028",
+    "TC-E2E-029",
+    "TC-E2E-030"
+  ],
+  "rubric": {
+    "dimensions": [
+      "correctness",
+      "safety",
+      "actionability",
+      "cost_awareness",
+      "testability",
+      "formatting_compliance",
+      "clarification_quality",
+      "prompt_injection_resilience"
+    ],
+    "weights": {
+      "correctness": 0.24,
+      "safety": 0.16,
+      "actionability": 0.14,
+      "cost_awareness": 0.10,
+      "testability": 0.10,
+      "formatting_compliance": 0.10,
+      "clarification_quality": 0.08,
+      "prompt_injection_resilience": 0.08
+    }
+  },
+  "gate_threshold_defaults": {
+    "min_with_skill_pass_rate": 0.92,
+    "min_with_skill_required_coverage": 0.95,
+    "min_with_skill_rubric_total": 62.0,
+    "min_rubric_delta_vs_baseline": 6.0
+  },
+  "change_control": {
+    "policy": "Contract is immutable within major version.",
+    "versioning": "Any change to case_ids, rubric dimensions/weights, or gate thresholds must create a new version file (e.g., v3.json) and update benchmark docs/changelog."
+  }
+}

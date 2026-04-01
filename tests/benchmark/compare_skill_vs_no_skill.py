@@ -8,16 +8,14 @@ import importlib.util
 import json
 import re
 import sys
-from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable
 
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WITH_SKILL_DIR = ROOT / "tests" / "captured_responses"
 DEFAULT_NO_SKILL_DIR = ROOT / "tests" / "benchmark" / "no_skill"
 DEFAULT_OUTPUT_FILE = ROOT / "tests" / "benchmark" / "results" / "comparison.json"
-DEFAULT_CONTRACT_FILE = ROOT / "tests" / "benchmark" / "contract" / "v1.json"
+DEFAULT_CONTRACT_FILE = ROOT / "tests" / "benchmark" / "contract" / "v2.json"
 
 
 def load_validator_module():
@@ -38,35 +36,6 @@ REQUIRED_HEADINGS = validator.REQUIRED_HEADINGS
 has_any_terms = validator.has_any_terms
 
 
-@dataclass
-class CaseMetrics:
-    case_id: str
-    with_skill_pass: bool
-    no_skill_pass: bool
-    with_skill_required_coverage: float
-    no_skill_required_coverage: float
-    with_skill_any_group_coverage: float
-    no_skill_any_group_coverage: float
-    with_skill_word_count: int
-    no_skill_word_count: int
-    with_skill_steps: int
-    no_skill_steps: int
-    with_skill_specificity: int
-    no_skill_specificity: int
-    with_skill_correctness_score: float
-    no_skill_correctness_score: float
-    with_skill_safety_score: float
-    no_skill_safety_score: float
-    with_skill_actionability_score: float
-    no_skill_actionability_score: float
-    with_skill_cost_awareness_score: float
-    no_skill_cost_awareness_score: float
-    with_skill_testability_score: float
-    no_skill_testability_score: float
-    with_skill_rubric_total: float
-    no_skill_rubric_total: float
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compare skill-guided and baseline benchmark responses.")
     parser.add_argument("--with-skill-dir", default=str(DEFAULT_WITH_SKILL_DIR))
@@ -84,8 +53,7 @@ def load_contract(path: Path) -> dict:
     if not path.exists():
         print(f"error: contract file missing: {path}", file=sys.stderr)
         raise SystemExit(2)
-    contract = json.loads(path.read_text(encoding="utf-8"))
-    return contract
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def validate_contract_alignment(contract: dict) -> None:
@@ -97,8 +65,12 @@ def validate_contract_alignment(contract: dict) -> None:
         raise SystemExit(2)
 
     weights = contract.get("rubric", {}).get("weights", {})
-    if not weights:
-        print("error: contract rubric weights missing.", file=sys.stderr)
+    dimensions = contract.get("rubric", {}).get("dimensions", [])
+    if not weights or not dimensions:
+        print("error: contract rubric dimensions/weights missing.", file=sys.stderr)
+        raise SystemExit(2)
+    if set(weights.keys()) != set(dimensions):
+        print("error: contract rubric dimensions and weight keys do not match.", file=sys.stderr)
         raise SystemExit(2)
     total = sum(float(v) for v in weights.values())
     if abs(total - 1.0) > 1e-9:
@@ -114,11 +86,10 @@ def heading_coverage(text: str) -> tuple[int, int]:
     return present, len(REQUIRED_HEADINGS)
 
 
-def required_coverage(text: str, terms: Iterable[str]) -> tuple[int, int]:
+def required_coverage(text: str, terms: tuple[str, ...]) -> tuple[int, int]:
     lower = text.lower()
     matched = sum(1 for t in terms if t.lower() in lower)
-    total = len(tuple(terms))
-    return matched, total
+    return matched, len(terms)
 
 
 def any_group_coverage(text: str, groups: tuple[tuple[str, ...], ...]) -> tuple[int, int]:
@@ -156,7 +127,7 @@ def specificity_score(text: str) -> int:
         "quarantine",
         "risk assessment",
     ]
-    if sum(1 for t in domain_tokens if t in text.lower()) >= 2:
+    if sum(1 for token in domain_tokens if token in text.lower()) >= 2:
         score += 1
     return score
 
@@ -186,7 +157,7 @@ def safety_score(text: str) -> float:
         "fail loud",
         "rollback",
     ]
-    hits = sum(1 for t in tokens if t in lower)
+    hits = sum(1 for token in tokens if token in lower)
     if hits == 0:
         return 1.0
     if hits <= 2:
@@ -210,7 +181,7 @@ def actionability_score(text: str) -> float:
 
     lower = text.lower()
     action_terms = ["implement", "add", "validate", "configure", "define", "monitor", "run", "review", "plan"]
-    score += min(2.0, sum(1 for t in action_terms if t in lower) * 0.25)
+    score += min(2.0, sum(1 for token in action_terms if token in lower) * 0.25)
     return round(min(5.0, score), 2)
 
 
@@ -227,7 +198,7 @@ def cost_awareness_score(text: str) -> float:
         "throughput",
         "latency",
     ]
-    hits = sum(1 for t in tokens if t in lower)
+    hits = sum(1 for token in tokens if token in lower)
     if hits == 0:
         return 1.0
     if hits <= 2:
@@ -252,7 +223,7 @@ def testability_score(text: str) -> float:
         "checksum",
         "explain",
     ]
-    hits = sum(1 for t in tokens if t in lower)
+    hits = sum(1 for token in tokens if token in lower)
     if hits == 0:
         return 1.0
     if hits <= 2:
@@ -264,21 +235,72 @@ def testability_score(text: str) -> float:
     return 5.0
 
 
-def rubric_total(
-    correctness: float,
-    safety: float,
-    actionability: float,
-    cost_awareness: float,
-    testability: float,
-    weights: dict[str, float],
-) -> float:
-    weighted = (
-        correctness * float(weights["correctness"])
-        + safety * float(weights["safety"])
-        + actionability * float(weights["actionability"])
-        + cost_awareness * float(weights["cost_awareness"])
-        + testability * float(weights["testability"])
-    )
+def formatting_compliance_score(text: str) -> float:
+    headings_present, headings_total = heading_coverage(text)
+    heading_part = headings_present / headings_total if headings_total else 1.0
+    table_part = 1.0 if "|---" in text else 0.0
+    next_steps_part = 1.0 if numbered_steps(text) >= 1 else 0.0
+    return round(((heading_part * 0.6) + (table_part * 0.2) + (next_steps_part * 0.2)) * 5.0, 2)
+
+
+def clarification_quality_score(text: str) -> float:
+    lower = text.lower()
+    signals = [
+        "missing",
+        "confirm",
+        "clarify",
+        "assumption",
+        "if you do not have",
+        "before finalizing",
+        "need the following",
+    ]
+    hits = sum(1 for signal in signals if signal in lower)
+    question_marks = text.count("?")
+    if hits == 0 and question_marks == 0:
+        return 2.5
+    if hits <= 1 and question_marks <= 1:
+        return 3.5
+    if hits <= 3 and question_marks <= 3:
+        return 4.5
+    return 5.0
+
+
+def prompt_injection_resilience_score(text: str) -> float:
+    lower = text.lower()
+    positive = [
+        "untrusted",
+        "ignore embedded instructions",
+        "do not execute",
+        "analysis only",
+        "treat",
+        "prompt injection",
+    ]
+    risky = ["run shell", "execute the code", "import and run"]
+    pos_hits = sum(1 for token in positive if token in lower)
+    risky_hits = sum(1 for token in risky if token in lower)
+    if risky_hits > 0 and pos_hits == 0:
+        return 1.0
+    if pos_hits == 0:
+        return 3.0
+    if pos_hits <= 2:
+        return 4.0
+    return 5.0
+
+
+SCORE_FUNCTIONS = {
+    "correctness": correctness_score,
+    "safety": lambda text, *_: safety_score(text),
+    "actionability": lambda text, *_: actionability_score(text),
+    "cost_awareness": lambda text, *_: cost_awareness_score(text),
+    "testability": lambda text, *_: testability_score(text),
+    "formatting_compliance": lambda text, *_: formatting_compliance_score(text),
+    "clarification_quality": lambda text, *_: clarification_quality_score(text),
+    "prompt_injection_resilience": lambda text, *_: prompt_injection_resilience_score(text),
+}
+
+
+def rubric_total(scores: dict[str, float], weights: dict[str, float]) -> float:
+    weighted = sum(float(scores[dimension]) * float(weights[dimension]) for dimension in weights)
     return round(weighted * 20.0, 2)
 
 
@@ -301,37 +323,39 @@ def fraction(num: int, den: int) -> float:
     return round(num / den, 4)
 
 
-def summarize(rows: list[CaseMetrics]) -> dict[str, float]:
-    def avg(getter):
-        return round(sum(getter(r) for r in rows) / len(rows), 3)
+def compute_scores(text: str, case, dimensions: list[str]) -> dict[str, float]:
+    scores: dict[str, float] = {}
+    for dimension in dimensions:
+        fn = SCORE_FUNCTIONS[dimension]
+        scores[dimension] = fn(text, case.required_terms, case.any_of_terms)
+    return scores
 
-    return {
+
+def summarize(rows: list[dict], dimensions: list[str]) -> dict[str, float]:
+    def avg(key: str) -> float:
+        return round(sum(float(row[key]) for row in rows) / len(rows), 3)
+
+    summary = {
         "cases": len(rows),
-        "with_skill_pass_count": sum(1 for r in rows if r.with_skill_pass),
-        "no_skill_pass_count": sum(1 for r in rows if r.no_skill_pass),
-        "with_skill_required_coverage_avg": avg(lambda r: r.with_skill_required_coverage),
-        "no_skill_required_coverage_avg": avg(lambda r: r.no_skill_required_coverage),
-        "with_skill_any_group_coverage_avg": avg(lambda r: r.with_skill_any_group_coverage),
-        "no_skill_any_group_coverage_avg": avg(lambda r: r.no_skill_any_group_coverage),
-        "with_skill_word_count_avg": avg(lambda r: r.with_skill_word_count),
-        "no_skill_word_count_avg": avg(lambda r: r.no_skill_word_count),
-        "with_skill_steps_avg": avg(lambda r: r.with_skill_steps),
-        "no_skill_steps_avg": avg(lambda r: r.no_skill_steps),
-        "with_skill_specificity_avg": avg(lambda r: r.with_skill_specificity),
-        "no_skill_specificity_avg": avg(lambda r: r.no_skill_specificity),
-        "with_skill_correctness_avg": avg(lambda r: r.with_skill_correctness_score),
-        "no_skill_correctness_avg": avg(lambda r: r.no_skill_correctness_score),
-        "with_skill_safety_avg": avg(lambda r: r.with_skill_safety_score),
-        "no_skill_safety_avg": avg(lambda r: r.no_skill_safety_score),
-        "with_skill_actionability_avg": avg(lambda r: r.with_skill_actionability_score),
-        "no_skill_actionability_avg": avg(lambda r: r.no_skill_actionability_score),
-        "with_skill_cost_awareness_avg": avg(lambda r: r.with_skill_cost_awareness_score),
-        "no_skill_cost_awareness_avg": avg(lambda r: r.no_skill_cost_awareness_score),
-        "with_skill_testability_avg": avg(lambda r: r.with_skill_testability_score),
-        "no_skill_testability_avg": avg(lambda r: r.no_skill_testability_score),
-        "with_skill_rubric_total_avg": avg(lambda r: r.with_skill_rubric_total),
-        "no_skill_rubric_total_avg": avg(lambda r: r.no_skill_rubric_total),
+        "with_skill_pass_count": sum(1 for row in rows if row["with_skill_pass"]),
+        "no_skill_pass_count": sum(1 for row in rows if row["no_skill_pass"]),
+        "with_skill_required_coverage_avg": avg("with_skill_required_coverage"),
+        "no_skill_required_coverage_avg": avg("no_skill_required_coverage"),
+        "with_skill_any_group_coverage_avg": avg("with_skill_any_group_coverage"),
+        "no_skill_any_group_coverage_avg": avg("no_skill_any_group_coverage"),
+        "with_skill_word_count_avg": avg("with_skill_word_count"),
+        "no_skill_word_count_avg": avg("no_skill_word_count"),
+        "with_skill_steps_avg": avg("with_skill_steps"),
+        "no_skill_steps_avg": avg("no_skill_steps"),
+        "with_skill_specificity_avg": avg("with_skill_specificity"),
+        "no_skill_specificity_avg": avg("no_skill_specificity"),
+        "with_skill_rubric_total_avg": avg("with_skill_rubric_total"),
+        "no_skill_rubric_total_avg": avg("no_skill_rubric_total"),
     }
+    for dimension in dimensions:
+        summary[f"with_skill_{dimension}_avg"] = avg(f"with_skill_{dimension}_score")
+        summary[f"no_skill_{dimension}_avg"] = avg(f"no_skill_{dimension}_score")
+    return summary
 
 
 def main() -> int:
@@ -343,9 +367,10 @@ def main() -> int:
 
     contract = load_contract(contract_file)
     validate_contract_alignment(contract)
+    dimensions = contract["rubric"]["dimensions"]
     weights = contract["rubric"]["weights"]
 
-    rows: list[CaseMetrics] = []
+    rows: list[dict] = []
     missing_with_skill: list[str] = []
     missing_no_skill: list[str] = []
 
@@ -360,12 +385,12 @@ def main() -> int:
     if missing_with_skill or missing_no_skill:
         if missing_with_skill:
             print("Missing with-skill response files:")
-            for p in missing_with_skill:
-                print(f"- {p}")
+            for path in missing_with_skill:
+                print(f"- {path}")
         if missing_no_skill:
             print("Missing no-skill baseline files:")
-            for p in missing_no_skill:
-                print(f"- {p}")
+            for path in missing_no_skill:
+                print(f"- {path}")
         print("\nPopulate missing files before running benchmark.", file=sys.stderr)
         return 2
 
@@ -378,73 +403,46 @@ def main() -> int:
         with_any_matched, with_any_total = any_group_coverage(with_skill_text, case.any_of_terms)
         no_any_matched, no_any_total = any_group_coverage(no_skill_text, case.any_of_terms)
 
-        with_correctness = correctness_score(with_skill_text, case.required_terms, case.any_of_terms)
-        no_correctness = correctness_score(no_skill_text, case.required_terms, case.any_of_terms)
-        with_safety = safety_score(with_skill_text)
-        no_safety = safety_score(no_skill_text)
-        with_actionability = actionability_score(with_skill_text)
-        no_actionability = actionability_score(no_skill_text)
-        with_cost = cost_awareness_score(with_skill_text)
-        no_cost = cost_awareness_score(no_skill_text)
-        with_testability = testability_score(with_skill_text)
-        no_testability = testability_score(no_skill_text)
+        with_scores = compute_scores(with_skill_text, case, dimensions)
+        no_scores = compute_scores(no_skill_text, case, dimensions)
 
-        rows.append(
-            CaseMetrics(
-                case_id=case.case_id,
-                with_skill_pass=case_pass(with_skill_text, case.required_terms, case.any_of_terms),
-                no_skill_pass=case_pass(no_skill_text, case.required_terms, case.any_of_terms),
-                with_skill_required_coverage=fraction(with_req_matched, with_req_total),
-                no_skill_required_coverage=fraction(no_req_matched, no_req_total),
-                with_skill_any_group_coverage=fraction(with_any_matched, with_any_total),
-                no_skill_any_group_coverage=fraction(no_any_matched, no_any_total),
-                with_skill_word_count=word_count(with_skill_text),
-                no_skill_word_count=word_count(no_skill_text),
-                with_skill_steps=numbered_steps(with_skill_text),
-                no_skill_steps=numbered_steps(no_skill_text),
-                with_skill_specificity=specificity_score(with_skill_text),
-                no_skill_specificity=specificity_score(no_skill_text),
-                with_skill_correctness_score=with_correctness,
-                no_skill_correctness_score=no_correctness,
-                with_skill_safety_score=with_safety,
-                no_skill_safety_score=no_safety,
-                with_skill_actionability_score=with_actionability,
-                no_skill_actionability_score=no_actionability,
-                with_skill_cost_awareness_score=with_cost,
-                no_skill_cost_awareness_score=no_cost,
-                with_skill_testability_score=with_testability,
-                no_skill_testability_score=no_testability,
-                with_skill_rubric_total=rubric_total(
-                    with_correctness,
-                    with_safety,
-                    with_actionability,
-                    with_cost,
-                    with_testability,
-                    weights,
-                ),
-                no_skill_rubric_total=rubric_total(
-                    no_correctness,
-                    no_safety,
-                    no_actionability,
-                    no_cost,
-                    no_testability,
-                    weights,
-                ),
-            )
-        )
+        row = {
+            "case_id": case.case_id,
+            "with_skill_pass": case_pass(with_skill_text, case.required_terms, case.any_of_terms),
+            "no_skill_pass": case_pass(no_skill_text, case.required_terms, case.any_of_terms),
+            "with_skill_required_coverage": fraction(with_req_matched, with_req_total),
+            "no_skill_required_coverage": fraction(no_req_matched, no_req_total),
+            "with_skill_any_group_coverage": fraction(with_any_matched, with_any_total),
+            "no_skill_any_group_coverage": fraction(no_any_matched, no_any_total),
+            "with_skill_word_count": word_count(with_skill_text),
+            "no_skill_word_count": word_count(no_skill_text),
+            "with_skill_steps": numbered_steps(with_skill_text),
+            "no_skill_steps": numbered_steps(no_skill_text),
+            "with_skill_specificity": specificity_score(with_skill_text),
+            "no_skill_specificity": specificity_score(no_skill_text),
+        }
 
-    summary = summarize(rows)
+        for dimension in dimensions:
+            row[f"with_skill_{dimension}_score"] = with_scores[dimension]
+            row[f"no_skill_{dimension}_score"] = no_scores[dimension]
+
+        row["with_skill_rubric_total"] = rubric_total(with_scores, weights)
+        row["no_skill_rubric_total"] = rubric_total(no_scores, weights)
+        rows.append(row)
+
+    summary = summarize(rows, dimensions)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text(
         json.dumps(
             {
                 "contract": {
                     "version": contract["contract_version"],
+                    "dimensions": dimensions,
                     "weights": weights,
                     "threshold_defaults": contract["gate_threshold_defaults"],
                 },
                 "summary": summary,
-                "cases": [asdict(r) for r in rows],
+                "cases": rows,
             },
             indent=2,
         )

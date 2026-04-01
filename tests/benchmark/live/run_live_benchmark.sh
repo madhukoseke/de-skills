@@ -5,14 +5,38 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 STAMP="$(date +"%Y%m%d_%H%M%S")"
 RUN_DIR="${1:-$ROOT_DIR/tests/benchmark/live_runs/$STAMP}"
 RESULTS_DIR="$RUN_DIR/results"
+PROVIDER="${BENCHMARK_PROVIDER:-openai}"
+DRY_RUN="${BENCHMARK_DRY_RUN:-0}"
 
 mkdir -p "$RUN_DIR" "$RESULTS_DIR"
 
 python3 "$ROOT_DIR/tests/benchmark/verify_contract.py"
 
-python3 "$ROOT_DIR/tests/benchmark/live/run_live_benchmark.py" \
-  --out-dir "$RUN_DIR" \
-  --prompts-file "$ROOT_DIR/tests/benchmark/live/prompts_v1.json"
+cmd=(
+  python3 "$ROOT_DIR/tests/benchmark/live/run_live_benchmark.py"
+  --provider "$PROVIDER"
+  --out-dir "$RUN_DIR"
+  --prompts-file "$ROOT_DIR/tests/benchmark/live/prompts_v2.json"
+)
+
+if [[ -n "${BENCHMARK_MODEL:-}" ]]; then
+  cmd+=(--model "$BENCHMARK_MODEL")
+fi
+
+if [[ -n "${BENCHMARK_API_KEY:-}" ]]; then
+  cmd+=(--api-key "$BENCHMARK_API_KEY")
+fi
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  cmd+=(--dry-run)
+fi
+
+"${cmd[@]}"
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  echo "Live benchmark dry run complete for provider '$PROVIDER': $RUN_DIR"
+  exit 0
+fi
 
 python3 "$ROOT_DIR/tests/validate_captured_responses.py" \
   --responses-dir "$RUN_DIR/with_skill" \
@@ -31,7 +55,7 @@ python3 "$ROOT_DIR/tests/benchmark/compare_skill_vs_no_skill.py" \
   --with-skill-dir "$RUN_DIR/with_skill" \
   --no-skill-dir "$RUN_DIR/no_skill" \
   --output-file "$RESULTS_DIR/comparison.json" \
-  --contract-file "$ROOT_DIR/tests/benchmark/contract/v1.json"
+  --contract-file "$ROOT_DIR/tests/benchmark/contract/v2.json"
 
 python3 "$ROOT_DIR/tests/benchmark/generate_skill_vs_no_skill_report.py" \
   --comparison-file "$RESULTS_DIR/comparison.json" \
@@ -40,4 +64,4 @@ python3 "$ROOT_DIR/tests/benchmark/generate_skill_vs_no_skill_report.py" \
 
 python3 "$ROOT_DIR/tests/benchmark/enforce_quality_gate.py" "$RESULTS_DIR/comparison.json"
 
-echo "Live benchmark complete: $RUN_DIR"
+echo "Live benchmark complete for provider '$PROVIDER': $RUN_DIR"

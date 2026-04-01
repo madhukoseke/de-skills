@@ -8,7 +8,7 @@
 *.swo
 *~
 
-# Local config (keep .claude/settings.local.json out if it contains secrets)
+# Agent-specific local config (keep local settings out if they contain secrets)
 .claude/settings.local.json
 
 # Dependencies (if any scripts are added later)
@@ -22,6 +22,7 @@ venv/
 tests/benchmark/results/
 tests/benchmark/skill_vs_no_skill_report.md
 tests/benchmark/live_runs/
+release-artifacts/
 
 # Environment and secrets
 .env

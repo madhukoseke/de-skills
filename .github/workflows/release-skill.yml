@@ -1,0 +1,51 @@
+name: Release Skill Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: Release version label for the packaged bundle
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build and validate adapter artifacts
+        run: |
+          python3 scripts/build_adapters.py
+          python3 scripts/build_adapters.py --check
+          python3 tests/validate_adapters.py
+          python3 tests/validate_provider_fixtures.py
+
+      - name: Resolve release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.release_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Package release artifact
+        run: |
+          python3 scripts/package_release.py --version "${{ steps.version.outputs.value }}"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-engineering-best-practices-${{ steps.version.outputs.value }}
+          path: release-artifacts/

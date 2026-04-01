@@ -1,0 +1,3 @@
+{
+  "output_text": "## Summary\nUse batch EL with idempotent MERGE.\n\n## Decision\nAdopt a daily batch pipeline.\n\n## Rationale\nIt satisfies the SLA with simpler operations.\n\n## Trade-offs\n| Option | Pros | Cons | When to Use |\n|---|---|---|---|\n| Batch | Simple | Higher latency | Daily sync |\n\n## Next Steps\n1. Define the data contract.\n2. Implement the load job.\n"
+}

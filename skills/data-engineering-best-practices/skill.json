@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "skill_name": "data-engineering-best-practices",
+  "display_name": "Data Engineering Best Practices",
+  "contract_version": "4.0",
+  "canonical_instruction_file": "SKILL.md",
+  "supported_providers": [
+    "openai",
+    "anthropic",
+    "gemini",
+    "generic"
+  ],
+  "adapter_files": {
+    "openai": "agents/openai.yaml",
+    "anthropic": "agents/anthropic.yaml",
+    "gemini": "agents/gemini.yaml",
+    "generic": "agents/generic.yaml"
+  },
+  "generated_artifacts": {
+    "openai": "dist/openai/system_prompt.txt",
+    "anthropic": "dist/anthropic/system_prompt.txt",
+    "gemini": "dist/gemini/system_prompt.txt",
+    "generic": "dist/generic/system_prompt.txt"
+  }
+}

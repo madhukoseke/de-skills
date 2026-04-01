@@ -1,8 +1,24 @@
-# Data Engineering Best Practices — Claude Code Skill
+# Data Engineering Best Practices Agent Skill
 
 [![CI](https://github.com/madhukoseke/de-skills/actions/workflows/validate-skill.yml/badge.svg)](https://github.com/madhukoseke/de-skills/actions/workflows/validate-skill.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Skill Version](https://img.shields.io/badge/skill%20version-4.0-blue)](CHANGELOG.md)
 
-A production-grade Claude Code skill that acts as a senior data engineering architect, reviewer, and playbook for the modern data stack (Airflow, dbt, SQL warehouses, Spark, streaming pipelines, data modeling, schema management, and data quality).
+A production-grade agent skill and instruction contract that acts as a senior data engineering architect, reviewer, and playbook for the modern data stack (Airflow, dbt, SQL warehouses, Spark, streaming pipelines, data modeling, schema management, and data quality).
+
+## Quick Start
+
+1. Verify generated artifacts and adapters:
+
+```bash
+python3 scripts/build_adapters.py --check
+python3 tests/validate_adapters.py
+python3 tests/validate_provider_fixtures.py
+```
+
+2. Use a provider bundle from `skills/data-engineering-best-practices/dist/<provider>/system_prompt.txt`.
+
+3. Start from one of the runtime examples in `examples/`.
+
+4. Read `OPERATOR_GUIDE.md` for the full workflow.
 
 ## Why This Skill?
 
@@ -12,23 +28,35 @@ With the skill active, every response is grounded in 12 non-negotiable principle
 
 In a head-to-head test across 4 modes (DESIGN, AIRFLOW, DBT, DATA_QUALITY), the skill identified **11 production bugs** in generic LLM responses that would have caused data corruption or silent data loss.
 
-## Install
+## How to Use
 
 ```bash
-# Install all skills from this repo
+# Claude-compatible packaged install
 npx skills add madhukoseke/de-skills
 
-# Install only the data-engineering skill
+# Claude-compatible install for only the data-engineering skill
 npx skills add madhukoseke/de-skills --skill data-engineering-best-practices
 ```
 
-## Requirements
+The canonical contract lives at `skills/data-engineering-best-practices/SKILL.md`.
 
-| Requirement | Version |
-|-------------|---------|
-| Claude Code CLI | ≥ 1.0 |
-| `npx skills` CLI | latest (`npx skills add ...`) |
-| Claude model | Claude Sonnet or Opus (Haiku not recommended for complex design tasks) |
+You can consume it in three ways:
+
+- As a packaged skill via `npx skills add ...` in Claude-compatible workflows
+- As a direct system/developer instruction contract by loading `SKILL.md` into an agent runtime or API call
+- As provider-specific adapter metadata and generated bundles under `skills/data-engineering-best-practices/agents/` and `skills/data-engineering-best-practices/dist/`
+- As copy-paste integration examples under `examples/`
+
+## Compatibility
+
+| Surface | Status | Notes |
+|---------|--------|-------|
+| Canonical skill contract | Supported | `skills/data-engineering-best-practices/SKILL.md` is the source of truth |
+| Claude-compatible skill loaders | Supported | Uses the packaged `npx skills add ...` flow |
+| OpenAI/Codex direct prompting | Supported | Load `SKILL.md` or `dist/openai/system_prompt.txt` |
+| Anthropic direct prompting | Supported | Use `agents/anthropic.yaml` and `dist/anthropic/system_prompt.txt` |
+| Gemini direct prompting | Supported | Use `agents/gemini.yaml` and `dist/gemini/system_prompt.txt` |
+| Generic runtime | Supported | Use `agents/generic.yaml` and `dist/generic/system_prompt.txt` |
 
 ## What It Does
 
@@ -70,6 +98,17 @@ The skill enforces these non-negotiable principles:
 ```
 skills/data-engineering-best-practices/
 ├── SKILL.md                              # Entry point — mode table, principles, examples
+├── agents/
+│   ├── openai.yaml                       # OpenAI/Codex-facing adapter metadata
+│   ├── anthropic.yaml                    # Anthropic/Claude-facing adapter metadata
+│   ├── gemini.yaml                       # Gemini-facing adapter metadata
+│   ├── generic.yaml                      # Generic runtime adapter metadata
+│   └── capabilities.json                 # Provider capability manifest
+├── dist/
+│   ├── openai/                           # Generated OpenAI/Codex contract bundle
+│   ├── anthropic/                        # Generated Anthropic contract bundle
+│   ├── gemini/                           # Generated Gemini contract bundle
+│   └── generic/                          # Generated generic contract bundle
 ├── playbooks/
 │   ├── 01_pipeline_design.md             # Batch/stream decision tree, architecture templates
 │   ├── 02_airflow_reliability.md         # Retries, idempotency, sensors, backfill
@@ -125,6 +164,31 @@ skills/data-engineering-best-practices/
 | [SQL Review](skills/data-engineering-best-practices/templates/sql_review.md) | SQL, PR_REVIEW |
 | [Spark Job Review](skills/data-engineering-best-practices/templates/spark_job_review.md) | SPARK, PR_REVIEW |
 | [Data Model Design](skills/data-engineering-best-practices/templates/data_model_design.md) | DATA_MODELING, DESIGN |
+
+## Build Adapters
+
+Generate or verify provider bundles from the canonical contract:
+
+```bash
+python3 scripts/build_adapters.py
+python3 scripts/build_adapters.py --check
+python3 tests/validate_adapters.py
+```
+
+## Examples
+
+- `examples/openai_responses_api.py`
+- `examples/anthropic_messages_api.py`
+- `examples/gemini_generate_content.py`
+- `examples/generic_system_prompt.md`
+
+Operator-facing usage guidance lives in `OPERATOR_GUIDE.md`.
+
+Provider compatibility notes live in `skills/data-engineering-best-practices/agents/model_compatibility.md`.
+
+## Pending Items
+
+The remaining production backlog is tracked in `ROADMAP.md`.
 
 ## Contributing
 

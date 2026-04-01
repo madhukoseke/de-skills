@@ -65,6 +65,21 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate canonical skill is vendor-neutral
+        run: |
+          python3 ../../tests/validate_vendor_neutrality.py
+
+      - name: Validate adapter manifests
+        run: |
+          python3 ../../scripts/build_adapters.py
+          python3 ../../scripts/build_adapters.py --check
+          python3 ../../tests/validate_adapters.py
+          python3 ../../tests/validate_provider_fixtures.py
+
+      - name: Validate Python script syntax
+        run: |
+          python3 -m py_compile ../../examples/*.py ../../tests/benchmark/live/providers/*.py ../../tests/benchmark/live/run_live_benchmark.py ../../scripts/*.py ../../tests/*.py ../../tests/benchmark/*.py
+
       - name: Validate E2E harness
         run: |
           ../../tests/run_e2e_harness.sh

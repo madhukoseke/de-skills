@@ -1,0 +1,12 @@
+interface:
+  display_name: "Data Engineering Best Practices"
+  short_description: "Production data engineering design and review"
+  default_prompt: "Use $data-engineering-best-practices to design or review a production-grade data engineering workflow."
+
+runtime:
+  provider: "openai"
+  prompt_role: "system"
+  prompt_style: "responses_api"
+
+policy:
+  allow_implicit_invocation: true

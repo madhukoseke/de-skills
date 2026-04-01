@@ -37,6 +37,7 @@ def main() -> int:
     summary = comp["summary"]
     cases = comp["cases"]
     contract = comp.get("contract", {})
+    dimensions = contract.get("dimensions", [])
 
     fail_lines: list[str] = []
     if no_skill_validator_file.exists():
@@ -54,7 +55,7 @@ def main() -> int:
     lines.append("## Method")
     lines.append("- Contract pass/fail against required headings, required terms, and any-of groups.")
     lines.append("- Coverage metrics: required-term coverage and any-of-group coverage.")
-    lines.append("- Rubric metrics (0-5 each): correctness, safety, actionability, cost awareness, testability.")
+    lines.append(f"- Rubric dimensions (0-5 each): {', '.join(dimensions)}.")
     lines.append("- Weighted rubric total normalized to 100 using contract-defined weights.")
     lines.append("")
     lines.append("## Executive Summary")
@@ -63,9 +64,6 @@ def main() -> int:
     )
     lines.append(
         f"- Required-term coverage avg: **with skill {summary['with_skill_required_coverage_avg']:.3f}** vs **no skill {summary['no_skill_required_coverage_avg']:.3f}**."
-    )
-    lines.append(
-        f"- Any-of-group coverage avg: **with skill {summary['with_skill_any_group_coverage_avg']:.3f}** vs **no skill {summary['no_skill_any_group_coverage_avg']:.3f}**."
     )
     lines.append(
         f"- Weighted rubric total avg: **with skill {summary['with_skill_rubric_total_avg']:.2f}/100** vs **no skill {summary['no_skill_rubric_total_avg']:.2f}/100**."
@@ -83,21 +81,13 @@ def main() -> int:
     lines.append(
         f"| Any-group coverage avg | {summary['with_skill_any_group_coverage_avg']:.3f} | {summary['no_skill_any_group_coverage_avg']:.3f} | {summary['with_skill_any_group_coverage_avg'] - summary['no_skill_any_group_coverage_avg']:+.3f} |"
     )
-    lines.append(
-        f"| Rubric: correctness (0-5) | {summary['with_skill_correctness_avg']:.2f} | {summary['no_skill_correctness_avg']:.2f} | {summary['with_skill_correctness_avg'] - summary['no_skill_correctness_avg']:+.2f} |"
-    )
-    lines.append(
-        f"| Rubric: safety (0-5) | {summary['with_skill_safety_avg']:.2f} | {summary['no_skill_safety_avg']:.2f} | {summary['with_skill_safety_avg'] - summary['no_skill_safety_avg']:+.2f} |"
-    )
-    lines.append(
-        f"| Rubric: actionability (0-5) | {summary['with_skill_actionability_avg']:.2f} | {summary['no_skill_actionability_avg']:.2f} | {summary['with_skill_actionability_avg'] - summary['no_skill_actionability_avg']:+.2f} |"
-    )
-    lines.append(
-        f"| Rubric: cost awareness (0-5) | {summary['with_skill_cost_awareness_avg']:.2f} | {summary['no_skill_cost_awareness_avg']:.2f} | {summary['with_skill_cost_awareness_avg'] - summary['no_skill_cost_awareness_avg']:+.2f} |"
-    )
-    lines.append(
-        f"| Rubric: testability (0-5) | {summary['with_skill_testability_avg']:.2f} | {summary['no_skill_testability_avg']:.2f} | {summary['with_skill_testability_avg'] - summary['no_skill_testability_avg']:+.2f} |"
-    )
+    for dimension in dimensions:
+        with_key = f"with_skill_{dimension}_avg"
+        no_key = f"no_skill_{dimension}_avg"
+        label = dimension.replace("_", " ")
+        lines.append(
+            f"| Rubric: {label} (0-5) | {summary[with_key]:.2f} | {summary[no_key]:.2f} | {summary[with_key] - summary[no_key]:+.2f} |"
+        )
     lines.append(
         f"| Rubric weighted total (0-100) | {summary['with_skill_rubric_total_avg']:.2f} | {summary['no_skill_rubric_total_avg']:.2f} | {summary['with_skill_rubric_total_avg'] - summary['no_skill_rubric_total_avg']:+.2f} |"
     )
@@ -105,9 +95,9 @@ def main() -> int:
     lines.append("## Per-Case Results")
     lines.append("| Case | With Skill Pass | No Skill Pass | Required Coverage (W/N) | Any-Group Coverage (W/N) | Rubric Total (W/N) |")
     lines.append("|---|---|---|---:|---:|---:|")
-    for c in cases:
+    for case in cases:
         lines.append(
-            f"| {c['case_id']} | {'PASS' if c['with_skill_pass'] else 'FAIL'} | {'PASS' if c['no_skill_pass'] else 'FAIL'} | {c['with_skill_required_coverage']:.3f}/{c['no_skill_required_coverage']:.3f} | {c['with_skill_any_group_coverage']:.3f}/{c['no_skill_any_group_coverage']:.3f} | {c['with_skill_rubric_total']:.2f}/{c['no_skill_rubric_total']:.2f} |"
+            f"| {case['case_id']} | {'PASS' if case['with_skill_pass'] else 'FAIL'} | {'PASS' if case['no_skill_pass'] else 'FAIL'} | {case['with_skill_required_coverage']:.3f}/{case['no_skill_required_coverage']:.3f} | {case['with_skill_any_group_coverage']:.3f}/{case['no_skill_any_group_coverage']:.3f} | {case['with_skill_rubric_total']:.2f}/{case['no_skill_rubric_total']:.2f} |"
         )
     lines.append("")
     lines.append("## No-Skill Failure Details")

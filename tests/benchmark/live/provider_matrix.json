@@ -1,0 +1,22 @@
+{
+  "providers": {
+    "openai": {
+      "module": "tests/benchmark/live/providers/openai.py",
+      "api_key_env": "OPENAI_API_KEY",
+      "model_env": "OPENAI_MODEL",
+      "default_model": "gpt-5"
+    },
+    "anthropic": {
+      "module": "tests/benchmark/live/providers/anthropic.py",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "model_env": "ANTHROPIC_MODEL",
+      "default_model": ""
+    },
+    "gemini": {
+      "module": "tests/benchmark/live/providers/gemini.py",
+      "api_key_env": "GEMINI_API_KEY",
+      "model_env": "GEMINI_MODEL",
+      "default_model": ""
+    }
+  }
+}

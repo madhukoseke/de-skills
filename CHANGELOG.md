@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reframed the repository as a vendor-neutral agent skill with `skills/data-engineering-best-practices/SKILL.md` as the canonical contract
+- Updated README and CONTRIBUTING to separate canonical skill content from product-specific adapters
+- Slimmed `CLAUDE.md` into a Claude-specific adapter document instead of treating Claude as the repo identity
+- Generalized the live benchmark runner terminology from `skill-file` to `contract-file` while keeping backward compatibility
+
+### Added
+
+- `skills/data-engineering-best-practices/agents/openai.yaml` for OpenAI/Codex-facing metadata
+- `AGENTS.md` for generic agent-facing repository guidance
+- `tests/validate_vendor_neutrality.py` and CI enforcement to keep canonical skill content free of provider-specific branding
+- Multi-provider adapter manifests for Anthropic, Gemini, and generic runtimes
+- `skills/data-engineering-best-practices/skill.json` and `agents/capabilities.json` to describe supported providers and generated outputs
+- `scripts/build_adapters.py` to build provider-specific contract bundles under `skills/data-engineering-best-practices/dist/`
+- `tests/validate_adapters.py` and `tests/benchmark/live/provider_matrix.json` for adapter consistency checks
+- Provider-pluggable live benchmark transports under `tests/benchmark/live/providers/`
+- Provider integration examples under `examples/`
+- `ROADMAP.md` to track remaining production-grade backlog and open questions
+- `BENCHMARK_DRY_RUN=1` support in the live benchmark shell wrapper
+- Dry-run benchmark shell mode now exits before validator/scoring so wrapper smoke tests succeed without live API output
+- Provider fixture validation with recorded OpenAI, Anthropic, and Gemini payloads
+- `agents/model_compatibility.md` with provider/model guidance and known quirks
+- Release packaging workflow and `scripts/package_release.py` for versioned artifact bundles
+- Benchmark contract `v2` with formatting compliance, clarification quality, and prompt-injection resilience dimensions
+
 ## [4.0.0] - 2026-03-22
 
 ### Added
