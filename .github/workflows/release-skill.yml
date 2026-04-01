@@ -24,12 +24,73 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate SKILL.md frontmatter
+        run: |
+          SKILL_FILE="skills/data-engineering-best-practices/SKILL.md"
+          if ! grep -q "^name:" "$SKILL_FILE"; then
+            echo "::error::SKILL.md missing required 'name' in frontmatter"
+            exit 1
+          fi
+          if ! grep -q "^description:" "$SKILL_FILE"; then
+            echo "::error::SKILL.md missing required 'description' in frontmatter"
+            exit 1
+          fi
+          echo "Frontmatter validation passed"
+
+      - name: Validate playbook files exist
+        run: |
+          SKILL_FILE="skills/data-engineering-best-practices/SKILL.md"
+          playbooks=$(grep -oE '\(playbooks/[^)]+\)' "$SKILL_FILE" | tr -d '()' | sort -u)
+          if [ -z "$playbooks" ]; then
+            echo "::error::No playbook paths found in SKILL.md"
+            exit 1
+          fi
+          while IFS= read -r f; do
+            if [ ! -f "skills/data-engineering-best-practices/$f" ]; then
+              echo "::error::Missing playbook referenced by SKILL.md: $f"
+              exit 1
+            fi
+          done <<< "$playbooks"
+          echo "Playbook files validation passed"
+
+      - name: Validate template files exist
+        run: |
+          SKILL_FILE="skills/data-engineering-best-practices/SKILL.md"
+          templates=$(grep -oE '\(templates/[^)]+\)' "$SKILL_FILE" | tr -d '()' | sort -u)
+          if [ -z "$templates" ]; then
+            echo "::error::No template paths found in SKILL.md"
+            exit 1
+          fi
+          while IFS= read -r f; do
+            if [ ! -f "skills/data-engineering-best-practices/$f" ]; then
+              echo "::error::Missing template referenced by SKILL.md: $f"
+              exit 1
+            fi
+          done <<< "$templates"
+          echo "Template files validation passed"
+
+      - name: Validate canonical skill is vendor-neutral
+        run: |
+          python3 tests/validate_vendor_neutrality.py
+
       - name: Build and validate adapter artifacts
         run: |
           python3 scripts/build_adapters.py
           python3 scripts/build_adapters.py --check
           python3 tests/validate_adapters.py
           python3 tests/validate_provider_fixtures.py
+
+      - name: Validate Python script syntax
+        run: |
+          python3 -m py_compile examples/*.py tests/benchmark/live/providers/*.py tests/benchmark/live/run_live_benchmark.py scripts/*.py tests/*.py tests/benchmark/*.py
+
+      - name: Validate E2E harness
+        run: |
+          tests/run_e2e_harness.sh
+
+      - name: Benchmark quality gate (skill vs baseline)
+        run: |
+          tests/benchmark/run_skill_vs_no_skill.sh
 
       - name: Resolve release version
         id: version

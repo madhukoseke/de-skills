@@ -73,12 +73,13 @@ def load_yaml(path: Path) -> dict:
             parsed = True
         elif value.lower() == "false":
             parsed = False
-        elif value.startswith('"') and value.endswith('"') and len(value) >= 2:
+        elif len(value) >= 2 and (
+            (value.startswith('"') and value.endswith('"'))
+            or (value.startswith("'") and value.endswith("'"))
+        ):
             parsed = value[1:-1]
         else:
-            raise ValueError(
-                f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: unsupported scalar value"
-            )
+            parsed = value
 
         section = result.get(current_section)
         if not isinstance(section, dict):

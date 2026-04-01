@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import os
-import urllib.error
 import urllib.parse
 import urllib.request
+
+from .common import request_json
 
 
 API_KEY_ENV = "GEMINI_API_KEY"
@@ -68,15 +69,8 @@ def call_model(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {body}") from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(f"Network error: {exc}") from exc
 
+    data = request_json(req)
     text = extract_output_text(data)
     if not text:
         raise RuntimeError(f"Empty model output for prompt: {user_prompt[:80]}")

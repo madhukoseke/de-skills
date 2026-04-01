@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import tarfile
 from pathlib import Path
 
@@ -31,7 +32,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Package release artifacts.")
     parser.add_argument("--version", default=SKILL_MANIFEST["contract_version"])
     parser.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR))
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", args.version):
+        parser.error("--version may contain only letters, numbers, dot, underscore, and hyphen")
+    return args
 
 
 def main() -> int:
