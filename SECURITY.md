@@ -12,7 +12,7 @@
 
 **Do not open a public GitHub Issue for security vulnerabilities.**
 
-Use GitHub's private vulnerability reporting: click the **"Report a vulnerability"** button on the [Security tab](../../security/advisories/new) of this repository.
+Use GitHub's private vulnerability reporting: open the repository [Security advisories page](https://github.com/madhukoseke/de-skills/security/advisories/new) and use **Report a vulnerability**.
 
 If you cannot access that feature, email `[INSERT SECURITY EMAIL]` with the subject line `[de-skills] Security Vulnerability`.
 

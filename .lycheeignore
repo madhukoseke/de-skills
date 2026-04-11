@@ -3,3 +3,7 @@ https://schema-registry
 http://schema-registry
 http://vault
 https://vault
+
+# Intermittent timeouts from GitHub Actions egress to contributor-covenant.org
+https://www.contributorcovenant.org/
+https://www.contributorcovenant.org/version/2/1/code_of_conduct.html

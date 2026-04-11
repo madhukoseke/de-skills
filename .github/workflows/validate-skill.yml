@@ -125,7 +125,9 @@ jobs:
             --exclude-path tests/captured_responses
             --exclude-path tests/benchmark/no_skill
             --max-concurrency 8
-            --accept 429
+            --timeout 120
+            --max-retries 5
+            --accept 100..=103,200..=399,429
             .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
