@@ -89,12 +89,31 @@ def principles_from_skill(raw: str) -> int:
     return len(re.findall(r"(?m)^\d+\. \*\*", chunk))
 
 
-def principles_from_readme(raw: str) -> int:
+def validate_readme_principles(raw: str, expected_skill_principles: int) -> None:
+    """README either lists the same numbered principles as SKILL or points to SKILL.md."""
     start = raw.find("## Principles")
     if start == -1:
         die("README.md missing ## Principles")
     chunk = raw[start : start + 4000]
-    return len(re.findall(r"(?m)^\d+\. \*\*", chunk))
+    numbered = len(re.findall(r"(?m)^\d+\. \*\*", chunk))
+    if numbered > 0:
+        if numbered != expected_skill_principles:
+            die(
+                f"Principle count mismatch: SKILL.md has {expected_skill_principles} numbered "
+                f"principles, README.md has {numbered}"
+            )
+        return
+    # Short README: must link to canonical SKILL and mention twelve principles there.
+    if "skills/data-engineering-best-practices/SKILL.md" not in chunk:
+        die(
+            "README ## Principles must either list numbered principles or link to "
+            "skills/data-engineering-best-practices/SKILL.md"
+        )
+    low = chunk.lower()
+    if "twelve" not in low and "12" not in low:
+        die("README ## Principles (summary mode) must mention twelve/12 principles")
+    if "principle" not in low:
+        die("README ## Principles (summary mode) must mention principles")
 
 
 def template_rows(raw: str) -> list[tuple[str, str]]:
@@ -161,13 +180,8 @@ def main() -> None:
         die(f"Input sections for unknown modes: {sorted(extra_inputs)}")
 
     p_skill = principles_from_skill(skill_raw)
-    p_readme = principles_from_readme(readme_raw)
-    if p_skill != p_readme:
-        die(
-            f"Principle count mismatch: SKILL.md has {p_skill} numbered principles, "
-            f"README.md has {p_readme}"
-        )
-    print(f"Principles count OK: {p_skill} (SKILL.md and README.md match)")
+    validate_readme_principles(readme_raw, p_skill)
+    print(f"Principles OK: {p_skill} in SKILL.md; README aligned")
 
     rows = template_rows(skill_raw)
     for path, used_by in rows:

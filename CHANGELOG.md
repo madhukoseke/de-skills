@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Simplified `README.md` for clearer install/use paths and less duplication with `SKILL.md`
 - Reframed the repository as a vendor-neutral agent skill with `skills/data-engineering-best-practices/SKILL.md` as the canonical contract
 - Updated README and CONTRIBUTING to separate canonical skill content from product-specific adapters
 - Slimmed `CLAUDE.md` into a Claude-specific adapter document instead of treating Claude as the repo identity
