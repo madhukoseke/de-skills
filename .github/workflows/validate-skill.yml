@@ -124,7 +124,6 @@ jobs:
             --exclude-path .cursor
             --exclude-path tests/captured_responses
             --exclude-path tests/benchmark/no_skill
-            --exclude-mail
             --max-concurrency 8
             --accept 429
             .
