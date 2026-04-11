@@ -109,6 +109,8 @@ skills/data-engineering-best-practices/
 │   ├── anthropic/                        # Generated Anthropic contract bundle
 │   ├── gemini/                           # Generated Gemini contract bundle
 │   └── generic/                          # Generated generic contract bundle
+├── schemas/
+│   └── skill_response.schema.json        # Optional JSON shape for machine-readable outputs
 ├── playbooks/
 │   ├── 01_pipeline_design.md             # Batch/stream decision tree, architecture templates
 │   ├── 02_airflow_reliability.md         # Retries, idempotency, sensors, backfill

@@ -39,6 +39,22 @@ Select a mode based on the user's request. If the request spans multiple modes, 
 | **DATA_MODELING** | "model this domain", "star schema", "Data Vault", "SCD Type 2", "OBT", "medallion", "fact table", "dimension table" | Schema DDL + modeling rationale + lineage + filled data model design template |
 | **DIAGNOSE** | "pipeline is stuck", "task failing", "warehouse error", "backlog growing", "error log", "debug this" | Root cause analysis + triage steps + remediation + optional postmortem template |
 
+## Mode selection (quick)
+
+| User goal | Start here | Often also |
+|-----------|--------------|------------|
+| New pipeline, contracts, landing zones | **DESIGN** | **WAREHOUSE**, **AIRFLOW** |
+| DAG reliability, retries, sensors | **AIRFLOW** | **PR_REVIEW** |
+| PR or diff review | **PR_REVIEW** | **AIRFLOW**, **SQL**, **SPARK**, **DBT** |
+| Failing run, logs, outage triage | **DIAGNOSE** | **AIRFLOW**, **DATA_QUALITY** |
+| Table DDL, partitions, indexes | **WAREHOUSE** | **DATA_MODELING**, **SQL** |
+| dbt models/tests/project layout | **DBT** | **DATA_QUALITY**, **WAREHOUSE** |
+| Kafka/Pulsar/Flink/CDC architecture | **STREAMING** | **DESIGN** |
+| SQL rewrite, EXPLAIN, idempotent DML | **SQL** | **WAREHOUSE** |
+| PySpark/Delta/skew/shuffle | **SPARK** | **DATA_MODELING** |
+| Star schema, Data Vault, SCD, medallion | **DATA_MODELING** | **WAREHOUSE** |
+| DQ rules, monitors, anomaly handling | **DATA_QUALITY** | **DBT**, **SQL** |
+
 ## Inputs to Collect
 
 Before producing output, gather the required context for the active mode. Ask for missing inputs — do not assume.
@@ -168,6 +184,13 @@ Numbered action items the user can execute immediately.
 ## Template
 Link to or fill in the relevant template from templates/.
 ```
+
+### Optional machine-readable output
+
+When the user or host runtime requests JSON, emit a single JSON object that conforms to
+[`schemas/skill_response.schema.json`](schemas/skill_response.schema.json) **in addition to** the
+markdown sections above (same content, dual representation). If JSON would exceed the host token
+budget, truncate `tradeOffs` rows and `nextSteps` before dropping `summary` or `decision`.
 
 ## Non-Negotiable Principles
 

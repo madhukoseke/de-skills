@@ -4,7 +4,7 @@ This file tracks remaining production-grade work for the multi-provider skill pa
 
 ## Next
 
-- Add end-to-end live API smoke tests behind opt-in credentials so recorded fixtures are backed by real provider responses in CI or scheduled jobs.
+- **Partially done:** scheduled/manual OpenAI smoke (`--max-cases 1`) in `.github/workflows/live-provider-smoke.yml` when `OPENAI_API_KEY` is set — extend to refresh recorded fixtures and/or add Anthropic/Gemini variants.
 - Add artifact publishing beyond GitHub workflow artifacts if you want downloadable release assets or package-registry distribution.
 - Add explicit benchmark calibration for provider-specific wrappers if cross-provider formatting variance becomes material.
 
@@ -18,6 +18,6 @@ This file tracks remaining production-grade work for the multi-provider skill pa
 
 ## Open Questions
 
-- Whether generated `dist/` artifacts should always be committed or only published in release workflows.
+- **Resolved:** `dist/` artifacts are **not** committed; CI regenerates them, and releases should ship bundles via workflow artifacts. See `OPERATOR_GUIDE.md` (Generated `dist/` policy).
 - Whether provider adapters should stay YAML-only or also emit normalized JSON for downstream tooling.
 - Whether the live benchmark should compare cross-provider performance on a single canonical prompt suite or maintain provider-tuned prompt wrappers.

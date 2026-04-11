@@ -1,0 +1,37 @@
+# https://github.com/DavidAnson/markdownlint-cli2
+# Relaxed defaults for docs with YAML frontmatter, tables, and long lines.
+
+config:
+  default: true
+  # First line is not always a top-level heading (e.g. SKILL.md frontmatter).
+  MD041: false
+  # Line length — tables and URLs exceed 80 chars frequently.
+  MD013: false
+  # Duplicate headings are common in changelogs and template sections.
+  MD024: false
+  # Bare URLs are acceptable in README/CONTRIBUTING.
+  MD034: false
+  # Ordered list prefix style varies across contributors.
+  MD029: false
+  # SKILL.md and templates use compact "### Mode" + bullet lists (spec style).
+  MD022: false
+  MD032: false
+  # Placeholder and pseudo-code fences omit a language by design.
+  MD040: false
+  # Playbooks use repeated H1-style titles; templates use multiple `#` sections.
+  MD025: false
+  MD031: false
+  MD036: false
+  MD058: false
+  # Playbooks use `* * *` separators and wide tables; headings may end with `?` / `.`.
+  MD037: false
+  MD056: false
+  MD026: false
+
+ignores:
+  - "node_modules/**"
+  - ".git/**"
+  - ".cursor/**"
+  # Fixture-style markdown (benchmark baselines); not authored for strict lint.
+  - "tests/captured_responses/**"
+  - "tests/benchmark/no_skill/**"

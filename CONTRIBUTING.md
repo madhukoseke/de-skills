@@ -56,7 +56,7 @@ skills/data-engineering-best-practices/
 - Use `agents/` only for product-specific metadata or thin adapter files derived from the canonical skill.
 - Do not fork the domain guidance across adapters; `SKILL.md` remains the source of truth.
 - If adapter metadata becomes stale after updating `SKILL.md`, regenerate or update it in the same change.
-- After changing canonical skill content or provider metadata, run `python3 scripts/build_adapters.py` and commit the updated `dist/` artifacts.
+- After changing canonical skill content or provider metadata, run `python3 scripts/build_adapters.py --check` before opening a PR. Generated `dist/` bundles are **not committed** (see `OPERATOR_GUIDE.md`); CI regenerates them for validation.
 
 ### Playbooks
 
@@ -70,6 +70,14 @@ skills/data-engineering-best-practices/
 - Keep templates self-contained and fillable (placeholders like `{PIPELINE_NAME}`).
 - Markdown templates should include YAML frontmatter (`title`, `description`, `tags`) for consistency.
 - Ensure any new template is referenced from SKILL.md and the relevant playbook(s).
+
+## Checklist: adding or renaming a playbook
+
+1. Add the markdown file under `skills/data-engineering-best-practices/playbooks/` with the next `NN_` prefix.
+2. Update the **Playbook Index** table in `SKILL.md` and any cross-links in README / `tests/e2e_test_cases.md` if applicable.
+3. Run `python3 tests/validate_vendor_neutrality.py` — canonical playbooks must stay vendor-neutral.
+4. Run `python3 tests/validate_skill_structure.py` — mode and template references must stay consistent.
+5. Run `python3 scripts/build_adapters.py --check` and the commands listed in `AGENTS.md`.
 
 ## Playbook Style Guide
 

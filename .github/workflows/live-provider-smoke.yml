@@ -1,0 +1,37 @@
+name: Live provider smoke (opt-in)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly Mondays 14:00 UTC — skips when API keys are not configured.
+    - cron: "0 14 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  openai_smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run live benchmark (first prompt only)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY is not set in repository secrets; skipping live smoke."
+            exit 0
+          fi
+          mkdir -p tests/benchmark/live_runs
+          cd tests/benchmark/live
+          python3 run_live_benchmark.py \
+            --provider openai \
+            --out-dir "${GITHUB_WORKSPACE}/tests/benchmark/live_runs/smoke-${GITHUB_RUN_ID}" \
+            --max-cases 1

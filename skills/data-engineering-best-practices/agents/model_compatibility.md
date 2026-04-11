@@ -50,3 +50,5 @@ This file documents tested or recommended model families for the provider adapte
 - Long contracts plus long user diffs can exhaust smaller context windows.
 - Providers differ in how reliably they preserve markdown tables under aggressive token limits.
 - Clarification quality varies more by model family than by provider API shape; benchmark before defaulting a cheaper model in production.
+
+For trimming prompts and contracts under tight token limits, see [`context_budget.md`](context_budget.md).

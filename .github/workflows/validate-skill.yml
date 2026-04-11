@@ -60,6 +60,10 @@ jobs:
           done <<< "$templates"
           echo "Template files validation passed"
 
+      - name: Validate SKILL structure (modes, templates, principles)
+        run: |
+          python3 ../../tests/validate_skill_structure.py
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -78,16 +82,51 @@ jobs:
 
       - name: Validate Python script syntax
         run: |
-          python3 -m py_compile ../../examples/*.py ../../tests/benchmark/live/providers/*.py ../../tests/benchmark/live/run_live_benchmark.py ../../scripts/*.py ../../tests/*.py ../../tests/benchmark/*.py
+          python3 -m py_compile ../../examples/*.py ../../examples/airflow/*.py ../../tests/benchmark/live/providers/*.py ../../tests/benchmark/live/run_live_benchmark.py ../../scripts/*.py ../../tests/*.py ../../tests/benchmark/*.py ../../tests/validate_skill_structure.py
 
       - name: Validate E2E harness
         run: |
           ../../tests/run_e2e_harness.sh
 
-      - name: Lint markdown
-        run: |
-          find ../.. -name "*.md" -not -path "*/.git/*" -not -path "*/node_modules/*" | head -5 && echo "Markdown files found (lint check placeholder — add markdownlint-cli2 when ready)"
-
       - name: Benchmark quality gate (skill vs baseline)
         run: |
           ../../tests/benchmark/run_skill_vs_no_skill.sh
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node (markdown tooling)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Lint markdown (markdownlint-cli2)
+        run: >-
+          npx --yes markdownlint-cli2@0.17.2
+          "README.md" "CHANGELOG.md" "CONTRIBUTING.md" "AGENTS.md"
+          "OPERATOR_GUIDE.md" "SECURITY.md" "ROADMAP.md" "CODE_OF_CONDUCT.md"
+          "skills/data-engineering-best-practices/SKILL.md"
+          "skills/data-engineering-best-practices/playbooks/*.md"
+          "skills/data-engineering-best-practices/templates/*.md"
+          "examples/airflow/*.md"
+          ".github/**/*.md"
+
+      - name: Check links (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --verbose --no-progress
+            --exclude-path node_modules
+            --exclude-path .git
+            --exclude-path .cursor
+            --exclude-path tests/captured_responses
+            --exclude-path tests/benchmark/no_skill
+            --exclude-mail
+            --max-concurrency 8
+            --accept 429
+            .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

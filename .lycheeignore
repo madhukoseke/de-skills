@@ -1,0 +1,5 @@
+# Non-routable examples in playbooks and fixtures
+https://schema-registry
+http://schema-registry
+http://vault
+https://vault

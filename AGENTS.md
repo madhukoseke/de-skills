@@ -21,6 +21,7 @@ Run these from repo root before shipping changes:
 
 ```bash
 python3 tests/validate_vendor_neutrality.py
+python3 tests/validate_skill_structure.py
 python3 scripts/build_adapters.py --check
 python3 tests/validate_adapters.py
 python3 tests/validate_provider_fixtures.py

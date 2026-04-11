@@ -31,6 +31,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temperature", type=float, default=0.2)
     parser.add_argument("--delay-sec", type=float, default=0.0)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--max-cases",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Process only the first N prompts (for scheduled smoke / cost control).",
+    )
     return parser.parse_args()
 
 
@@ -80,6 +87,11 @@ def main() -> int:
     if not cases:
         print(f"error: no cases in prompts file: {prompts_file}", file=sys.stderr)
         return 2
+    if args.max_cases is not None:
+        if args.max_cases < 1:
+            print("error: --max-cases must be >= 1", file=sys.stderr)
+            return 2
+        cases = cases[: args.max_cases]
 
     contract_text = contract_file.read_text(encoding="utf-8")
     with_skill_system = (

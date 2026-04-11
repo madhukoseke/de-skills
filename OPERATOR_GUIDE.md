@@ -21,6 +21,13 @@ Think about the repo in four layers:
 
 If you keep those layers separate, the repo stays maintainable.
 
+## Generated `dist/` policy
+
+- The repository **does not commit** generated provider bundles under `skills/data-engineering-best-practices/dist/`. The root `.gitignore` ignores `dist/` directories so local builds stay out of git history.
+- **CI** runs `python3 scripts/build_adapters.py` and `build_adapters.py --check` on every push so artifacts stay reproducible from `SKILL.md` + `agents/`.
+- **Releases** use `.github/workflows/release-skill.yml` (when present) to package versioned bundles for download — treat that output as the distribution channel instead of committing `dist/`.
+- **Locally**, run `python3 scripts/build_adapters.py` when you need `dist/<provider>/system_prompt.txt` for manual testing.
+
 ## Common Workflows
 
 ### Use the skill in a runtime
@@ -36,6 +43,7 @@ Provider examples:
 - `examples/anthropic_messages_api.py`
 - `examples/gemini_generate_content.py`
 - `examples/generic_system_prompt.md`
+- `examples/airflow/README.md` (illustrative DAG patterns; not executed by this repo)
 
 ### Update the skill content
 
@@ -47,13 +55,15 @@ Provider examples:
 python3 scripts/build_adapters.py
 ```
 
-4. Run validation:
+4. Run validation (same sequence as [`AGENTS.md`](AGENTS.md)):
 
 ```bash
 python3 tests/validate_vendor_neutrality.py
+python3 tests/validate_skill_structure.py
 python3 scripts/build_adapters.py --check
 python3 tests/validate_adapters.py
 python3 tests/validate_provider_fixtures.py
+python3 -m py_compile examples/*.py examples/airflow/*.py tests/benchmark/live/providers/*.py
 bash tests/run_e2e_harness.sh
 bash tests/benchmark/run_skill_vs_no_skill.sh
 ```
@@ -82,6 +92,8 @@ python3 scripts/package_release.py --version <version>
 - To understand the skill: `skills/data-engineering-best-practices/SKILL.md`
 - To understand provider support: `skills/data-engineering-best-practices/agents/capabilities.json`
 - To understand model guidance: `skills/data-engineering-best-practices/agents/model_compatibility.md`
+- To shrink prompts for small windows: `skills/data-engineering-best-practices/agents/context_budget.md`
+- Optional JSON output shape: `skills/data-engineering-best-practices/schemas/skill_response.schema.json`
 - To understand validation: `tests/benchmark/README.md`
 - To understand remaining work: `ROADMAP.md`
 
@@ -98,6 +110,7 @@ For the shortest safe path:
 
 ```bash
 python3 scripts/build_adapters.py --check
+python3 tests/validate_skill_structure.py
 python3 tests/validate_adapters.py
 python3 tests/validate_provider_fixtures.py
 ```

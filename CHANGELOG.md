@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `agents/model_compatibility.md` with provider/model guidance and known quirks
 - Release packaging workflow and `scripts/package_release.py` for versioned artifact bundles
 - Benchmark contract `v2` with formatting compliance, clarification quality, and prompt-injection resilience dimensions
+- CI `docs` job: `markdownlint-cli2` on canonical markdown plus `lychee` link checking (with fixture paths excluded)
+- `.github/dependabot.yml` for weekly GitHub Actions updates
+- `tests/validate_skill_structure.py` to assert modes, inputs, templates, and README principle counts stay aligned with `SKILL.md`
+- `examples/airflow/` sample DAG + README (moved from ad-hoc `dags/`)
+- Optional JSON response contract at `skills/data-engineering-best-practices/schemas/skill_response.schema.json`
+- `agents/context_budget.md` for token-budget / truncation guidance across providers
+- `.github/workflows/live-provider-smoke.yml` scheduled + manual OpenAI smoke (`--max-cases 1`) when `OPENAI_API_KEY` is set
 
 ## [4.0.0] - 2026-03-22
 
