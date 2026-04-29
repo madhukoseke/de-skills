@@ -6,7 +6,7 @@ tags: [dbt, model-review, template, analytics-engineering]
 
 # dbt Model Review Template
 
-Fill in all sections. Used by DBT mode and PR_REVIEW mode. Referenced by `playbooks/06_dbt_patterns.md`.
+Fill in all sections. Used by DBT mode and PR_REVIEW mode. Referenced by `playbooks/04_dbt_patterns.md`.
 
 ---
 
@@ -17,7 +17,11 @@ Fill in all sections. Used by DBT mode and PR_REVIEW mode. Referenced by `playbo
 **Reviewer:** <!-- Your name -->
 **Date:** <!-- YYYY-MM-DD -->
 **Layer:** <!-- staging | intermediate | mart -->
-**Materialization:** <!-- view | table | incremental | ephemeral | snapshot -->
+**Materialization:** <!-- view | table | incremental | ephemeral | snapshot | dynamic_table | materialized_view | streaming_table -->
+**Group:** <!-- e.g., core | finance | marketing -->
+**Access:** <!-- private | protected | public -->
+**Version:** <!-- e.g., v2 (latest) | v1 (deprecated YYYY-MM-DD) -->
+**Contract enforced:** <!-- yes / no — should be yes for any non-staging model -->
 
 ---
 
@@ -40,6 +44,13 @@ Fill in all sections. Used by DBT mode and PR_REVIEW mode. Referenced by `playbo
 | 13 | No hardcoded schema/database identifiers | <!-- PASS / FAIL --> | |
 | 14 | `dbt compile` succeeds without errors | <!-- PASS / FAIL --> | |
 | 15 | Column names follow `snake_case` convention | <!-- PASS / FAIL / WARN --> | |
+| 16 | Model has explicit `group` and `access` set | <!-- PASS / FAIL / N-A --> | |
+| 17 | `config.contract.enforced: true` for mart / public models | <!-- PASS / FAIL / N-A --> | |
+| 18 | Contract-breaking changes use `versions:` with `deprecation_date`, not in-place edits | <!-- PASS / FAIL / N-A --> | |
+| 19 | `latest_version` updated when adding a new `v:` entry | <!-- PASS / FAIL / N-A --> | |
+| 20 | If consumed by Semantic Layer: model is referenced from a `semantic_models:` entry | <!-- PASS / FAIL / N-A --> | |
+| 21 | If `materialized` is `dynamic_table` / `materialized_view` / `streaming_table`: `target_lag` / `refresh_interval` declared and matches contract SLA | <!-- PASS / FAIL / N-A --> | |
+| 22 | If `access: public`: model is in the canonical export list, not under refactor | <!-- PASS / FAIL / N-A --> | |
 
 ---
 

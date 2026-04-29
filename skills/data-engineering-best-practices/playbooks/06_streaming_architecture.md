@@ -208,6 +208,109 @@ WHERE order_id IN (
 );
 ```
 
+### CDC engine comparison (when to choose what)
+
+| Engine | Operating model | Strengths | Watch-outs | Best for |
+|--------|-----------------|-----------|------------|----------|
+| **Debezium** (Kafka Connect) | Self-hosted; reads DB log directly | Open source; rich connector matrix; full event envelope; widely understood | Operational overhead; replication-slot management; one-connector-per-DB; restart sensitivity | Org has Kafka and SREs; you want control over the stream and full event history |
+| **Debezium Server** | Standalone; sinks to Kinesis / Pulsar / EventHubs without Kafka | Same engine, no Kafka dependency | Less mature than Connect-based deployments; community-supported sinks vary | You want Debezium semantics on a non-Kafka broker |
+| **Fivetran HVR** | Managed; agent-based on source | Mature; rich source coverage including legacy DBs (DB2, Informix, Tandem); transaction-consistent across tables | Vendor cost scales with rows; closed source | Mainframe / legacy / cross-table transactional workloads; you want a SaaS SLA |
+| **Airbyte CDC** | OSS / managed; periodic CDC pull | Hundreds of source connectors; warehouse-first landing; cheap to start | Not true streaming (minute-scale at best); some sources still polling-based | Daily / hourly warehouse refreshes that don't need sub-minute latency |
+| **Striim** | Managed; agent-based on source | Built-in stream SQL transformations; multi-target fan-out | Smaller community; SaaS lock-in | Heterogeneous source-to-target with in-flight transformation |
+| **AWS DMS** | Managed; reads source log | Native to AWS; cheap; ongoing replication mode | Limited transformation; row-based, not log-based for some sources | AWS-native pipelines that just need replication |
+| **Cloud-native** (Snowflake Streams, BigQuery CDC, Databricks DLT CDC, Postgres logical decoding to a managed sink) | Native to one platform | Tight integration; minimal ops | Limits you to that platform; cross-database CDC needs another tool | Single-platform shops that want zero CDC operational footprint |
+
+**Decision rule:** if you can land CDC into the warehouse without a dedicated stream processor (because the warehouse sink + batch MERGE is enough), prefer the simpler managed option (Airbyte CDC / Fivetran / native). Reach for Debezium only when you need the **stream itself** — fan-out to multiple consumers, in-flight enrichment, or sub-minute downstream effects.
+
+### Initial snapshot strategy
+
+Every CDC pipeline starts with a backfill of existing rows before tailing the log. Three strategies, increasingly safe:
+
+| Strategy | Lock cost | Time cost | Risk |
+|----------|-----------|-----------|------|
+| **Blocking snapshot** | Holds a long-running read transaction | High on big tables | Blocks DDL; can OOM the DB; only safe on small tables |
+| **Incremental snapshot** (chunked) | Per-chunk row locks only | Higher overall latency, lower per-chunk impact | Requires the log to retain history past snapshot start |
+| **External snapshot** (load from a backup or replica, then attach to the log) | Zero on primary | Highest: backup time + rebuild | Cleanest for huge tables; requires more orchestration |
+
+Debezium's incremental snapshot (DBZ-3489) is the default for new pipelines on tables larger than ~50 GB. Always verify that the log retention window is **larger than the worst-case snapshot duration** — otherwise the connector falls off the log and a full re-snapshot is forced.
+
+### Schema evolution in CDC streams
+
+CDC events carry both data and schema. A DDL change in the source produces a schema change event. Handle each transition explicitly:
+
+| DDL change | Compatibility | Pipeline action |
+|------------|:-------------:|-----------------|
+| Add column with default | Backward | Auto-add column to target table; treat as additive |
+| Add column without default | Backward | Add column; backfill NULL or recompute from log |
+| Drop column | Forward | Stop writing column to target; keep historical data |
+| Rename column | None | Treat as drop + add; dual-write; deprecate old |
+| Change type widening (`INT` → `BIGINT`) | Backward | Apply at target; verify no downstream casts narrow back |
+| Change type narrowing | None | Treat as breaking; stop CDC; coordinate consumer migration |
+| Change primary key | None | New table version; dual-CDC; cut over after consumer migration |
+
+**Rule:** every CDC pipeline must have a **DLQ** for events whose schema is incompatible with the current target. Land them with the raw envelope and the inferred schema diff; alert; do not silently drop. Reference Playbook 12 §2 for compatibility-mode terminology.
+
+### Transactional consistency across tables
+
+Most relational sources commit groups of changes to multiple tables atomically. CDC tools differ in how they preserve that grouping:
+
+- **Debezium / Fivetran HVR / Striim** — emit a transaction-id (or LSN ordering) on every event; consumers can reconstitute transactions if they keep events in LSN order.
+- **Airbyte CDC** — typically does **not** preserve cross-table transactional grouping; the warehouse sees rows in arbitrary commit order. Acceptable for analytics, dangerous for systems that depend on cross-table invariants.
+
+If your downstream depends on "an order row never appears without its line items", verify your CDC tool emits transaction grouping and that your sink applies it as a single MERGE batch keyed by transaction-id. Otherwise, build the invariant in at the mart layer with a delayed-publish gate (e.g., wait until both fact_orders and fact_order_items have the same `tx_id`).
+
+### Idempotency in CDC consumers (W001)
+
+CDC streams will replay. The contract is **at-least-once delivery**; consumers achieve **effectively-once application** by:
+
+1. **Dedup by source LSN / position.** Every CDC event carries a monotonically increasing position (`source.lsn`, `source.txid`, Kafka offset, ingestion timestamp). The consumer tracks `(table, primary_key, max_applied_position)` and skips events with `position <= max_applied_position`.
+2. **MERGE, never INSERT.** Like batch loads (W001), CDC apply uses MERGE on the primary key. The merge key includes the position so a replay updates rather than duplicates.
+3. **Soft-delete for tombstones.** Deletes in CDC arrive as `op = 'd'`. Apply as `_deleted = TRUE` plus `_deleted_at_utc`; physical delete only when retention requires it (Playbook 14 §6 for erasure semantics).
+4. **Tombstone for compaction.** When using Kafka log compaction, send a `null` value with the same key after the delete to release the slot.
+
+### Heartbeats and lag monitoring
+
+Without a heartbeat, a quiet table looks like a stuck connector — and a stuck connector looks like a quiet table. Always enable:
+
+```json
+{ "heartbeat.interval.ms": "30000",
+  "heartbeat.action.query": "INSERT INTO debezium_heartbeat(ts) VALUES (NOW())" }
+```
+
+The heartbeat advances the source LSN even when no real changes occur, which keeps replication slots from filling up and gives consumers a lag signal:
+
+```sql
+-- Postgres-side: how much WAL is the slot holding?
+SELECT slot_name, pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn)) AS lag_bytes
+FROM pg_replication_slots;
+
+-- MySQL: SHOW BINARY LOGS;  // compare to the connector's last position
+-- SQL Server: dm_cdc_log_scan_sessions
+
+-- Consumer-side: emit lag as a metric
+emit_gauge("cdc.consumer_lag_seconds", lag_seconds, tags=[connector, source_table])
+```
+
+Alert when lag exceeds the freshness SLO from Playbook 13 §4.
+
+### Outbox pattern (when CDC isn't enough)
+
+When the source database can't be CDC'd cleanly (e.g., truncates, schema churn, no log access), use the **outbox pattern**:
+
+```
+[ App business logic ] ──┐
+                          │  same transaction
+                          ▼
+              [ App table ] + [ outbox event row ]
+                                       │
+                                       ▼  CDC-tail this single table
+                                  [ Kafka topic ]
+```
+
+The application writes the business row and an `outbox_events` row in the same transaction. CDC tails only `outbox_events` — predictable schema, append-only, controlled by the application team. This bypasses every "we can't CDC the schema migrations on the main table" complaint.
+
+**Trade-off:** doubles the source-write cost and adds an application-side concern. Use only when direct CDC is infeasible.
+
 ---
 
 ## 6. Windowing

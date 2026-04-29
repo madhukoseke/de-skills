@@ -4,7 +4,9 @@
 
 | Version | Supported |
 |---------|-----------|
-| 4.0     | ✅ Yes    |
+| 5.0.x   | ✅ Yes    |
+| 4.1.x   | ✅ Yes    |
+| 4.0.x   | ✅ Yes (security fixes only) |
 | 3.0     | ❌ No     |
 | < 3.0   | ❌ No     |
 
@@ -14,7 +16,7 @@
 
 Use GitHub's private vulnerability reporting: open the repository [Security advisories page](https://github.com/madhukoseke/de-skills/security/advisories/new) and use **Report a vulnerability**.
 
-If you cannot access that feature, email `[INSERT SECURITY EMAIL]` with the subject line `[de-skills] Security Vulnerability`.
+If GitHub advisories are unavailable, open a public issue titled `Security: contact request` with **no vulnerability detail**, and a maintainer will reach out privately to coordinate disclosure.
 
 We will acknowledge receipt within **48 hours** and provide an initial assessment within **7 days**.
 

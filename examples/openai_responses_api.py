@@ -19,11 +19,14 @@ SYSTEM_PROMPT_FILE = (
 
 def main() -> int:
     api_key = os.getenv("OPENAI_API_KEY")
-    model = os.getenv("OPENAI_MODEL", "gpt-5")
+    model = os.getenv("OPENAI_MODEL")
     user_prompt = " ".join(sys.argv[1:]).strip()
 
     if not api_key:
         print("error: OPENAI_API_KEY is required", file=sys.stderr)
+        return 2
+    if not model:
+        print("error: OPENAI_MODEL is required", file=sys.stderr)
         return 2
     if not user_prompt:
         print("usage: examples/openai_responses_api.py '<prompt>'", file=sys.stderr)

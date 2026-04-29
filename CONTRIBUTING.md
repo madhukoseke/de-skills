@@ -57,6 +57,7 @@ skills/data-engineering-best-practices/
 - Do not fork the domain guidance across adapters; `SKILL.md` remains the source of truth.
 - If adapter metadata becomes stale after updating `SKILL.md`, regenerate or update it in the same change.
 - After changing canonical skill content or provider metadata, run `python3 scripts/build_adapters.py --check` before opening a PR. Generated `dist/` bundles are **not committed** (see `OPERATOR_GUIDE.md`); CI regenerates them for validation.
+- `agents/model_compatibility.md` is **hand-curated**. When you refresh model lists, bump the `Last reviewed` / `Next review due` dates at the top of that file in the same PR.
 
 ### Playbooks
 
@@ -103,9 +104,11 @@ tests/run_e2e_harness.sh
 - Validate adapter manifests and generated artifacts:
 
 ```bash
+python3 -m pip install -r tests/requirements.txt   # one-time
 python3 scripts/build_adapters.py --check
 python3 tests/validate_adapters.py
 python3 tests/validate_provider_fixtures.py
+python3 tests/validate_json_responses.py
 ```
 
 - Validate example and provider transport scripts:
@@ -125,6 +128,12 @@ tests/benchmark/run_skill_vs_no_skill.sh
 ```bash
 tests/benchmark/live/run_live_benchmark.sh
 ```
+
+## Security tooling
+
+- **Secret scanning** is enabled at the repository level via GitHub-native secret scanning. No workflow file is required. If you commit a credential by mistake, rotate it immediately and follow [SECURITY.md](SECURITY.md) to report.
+- **CodeQL** runs via [.github/workflows/codeql.yml](.github/workflows/codeql.yml) on every PR plus weekly. Open security alerts via the repository **Security** tab.
+- Do not commit credentials, API keys, or `.env` files. Stage individual files (`git add path/to/file`) rather than `git add -A` to avoid sweeping in untracked secrets.
 
 ## Updating References
 

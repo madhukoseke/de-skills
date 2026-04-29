@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [main, master]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: skills/data-engineering-best-practices
@@ -68,6 +73,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+
+      - name: Install validator dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r ../../tests/requirements.txt
 
       - name: Validate canonical skill is vendor-neutral
         run: |
@@ -79,6 +91,15 @@ jobs:
           python3 ../../scripts/build_adapters.py --check
           python3 ../../tests/validate_adapters.py
           python3 ../../tests/validate_provider_fixtures.py
+          python3 ../../tests/validate_json_responses.py
+
+      - name: Assert no committed __pycache__
+        run: |
+          if git ls-files | grep -q __pycache__; then
+            echo "::error::__pycache__ directories are tracked in git; remove them with 'git rm -r --cached **/__pycache__'"
+            git ls-files | grep __pycache__
+            exit 1
+          fi
 
       - name: Validate Python script syntax
         run: |
@@ -94,6 +115,8 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "skill_name": "data-engineering-best-practices",
   "display_name": "Data Engineering Best Practices",
-  "contract_version": "4.0",
+  "contract_version": "5.0.0",
   "canonical_instruction_file": "SKILL.md",
   "supported_providers": [
     "openai",

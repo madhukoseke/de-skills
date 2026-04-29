@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/madhukoseke/de-skills/schemas/skill_response.schema.json",
   "title": "DataEngineeringBestPracticesSkillResponse",
-  "description": "Optional JSON mirror of the markdown output contract in SKILL.md (Summary, Decision, Rationale, Trade-offs, Next Steps, Template).",
+  "description": "Optional JSON mirror of the markdown output contract in SKILL.md (Summary, Decision, Rationale, Trade-offs, Next Steps, Template). Additional optional fields let consumers express the operating mode, principles cited, lineage, risks, and a reference to a filled data contract. All new fields are additive and may be omitted; consumers must tolerate missing fields and ignore unknown ones.",
   "type": "object",
   "additionalProperties": true,
   "required": ["summary", "decision", "rationale", "nextSteps"],
@@ -46,6 +46,87 @@
     "template": {
       "type": "string",
       "description": "Path under templates/ or short name of the filled template."
+    },
+    "mode": {
+      "type": "string",
+      "description": "The operating mode that produced this response.",
+      "enum": [
+        "DESIGN",
+        "WAREHOUSE",
+        "AIRFLOW",
+        "STREAMING",
+        "PR_REVIEW",
+        "DBT",
+        "DATA_QUALITY",
+        "SQL",
+        "SPARK",
+        "DATA_MODELING",
+        "DIAGNOSE"
+      ]
+    },
+    "principlesCited": {
+      "type": "array",
+      "description": "Stable principle IDs invoked by this response. Must match the IDs declared in SKILL.md (W001..W012).",
+      "items": {
+        "type": "string",
+        "pattern": "^W0(0[1-9]|1[0-2])$"
+      },
+      "uniqueItems": true
+    },
+    "risks": {
+      "type": "array",
+      "description": "Risks the consumer must accept or mitigate before adopting the recommendation.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "description"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "description": {
+            "type": "string",
+            "description": "What can go wrong."
+          },
+          "mitigation": {
+            "type": "string",
+            "description": "How to prevent or recover."
+          }
+        }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "description": "Source and target tables / topics / objects touched by this design or change.",
+      "additionalProperties": false,
+      "properties": {
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Inputs consumed (e.g., 'salesforce.opportunity', 'kafka://orders.placed.v1')."
+        },
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Outputs produced (e.g., 'warehouse.mart.fact_orders')."
+        }
+      }
+    },
+    "dataContract": {
+      "type": "object",
+      "description": "Reference to a filled or proposed data contract.",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the rendered contract file (e.g., 'contracts/orders_v1.yaml')."
+        },
+        "inline": {
+          "type": "string",
+          "description": "Inline YAML body of the contract, when no file exists yet."
+        }
+      }
     }
   }
 }

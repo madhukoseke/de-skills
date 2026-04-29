@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Minimal Anthropic Messages API example using the generated contract bundle."""
+"""Minimal Anthropic Messages API example using the generated contract bundle.
+
+Wires up **prompt caching** on the system block: the canonical contract is
+~9KB of static text, and re-sending it on every request is wasteful. With
+`cache_control: {"type": "ephemeral"}` the second-and-later requests within
+the cache TTL pay roughly 10% of the input-token cost for the cached prefix.
+
+Set `ANTHROPIC_PROMPT_CACHING=0` to disable for a baseline comparison.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +29,7 @@ def main() -> int:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     model = os.getenv("ANTHROPIC_MODEL")
     user_prompt = " ".join(sys.argv[1:]).strip()
+    enable_cache = os.getenv("ANTHROPIC_PROMPT_CACHING", "1") != "0"
 
     if not api_key:
         print("error: ANTHROPIC_API_KEY is required", file=sys.stderr)
@@ -33,9 +42,21 @@ def main() -> int:
         return 2
 
     system_prompt = SYSTEM_PROMPT_FILE.read_text(encoding="utf-8")
+
+    if enable_cache:
+        system_block: object = [
+            {
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+    else:
+        system_block = system_prompt
+
     payload = {
         "model": model,
-        "system": system_prompt,
+        "system": system_block,
         "messages": [{"role": "user", "content": user_prompt}],
         "max_tokens": 1400,
         "temperature": 0.2,
@@ -65,6 +86,16 @@ def main() -> int:
         if isinstance(text, str):
             chunks.append(text)
     print("\n".join(chunks).strip())
+
+    usage = data.get("usage") or {}
+    cache_read = usage.get("cache_read_input_tokens", 0)
+    cache_create = usage.get("cache_creation_input_tokens", 0)
+    if cache_read or cache_create:
+        print(
+            f"\n[cache] read={cache_read} created={cache_create} "
+            f"input={usage.get('input_tokens', 0)} output={usage.get('output_tokens', 0)}",
+            file=sys.stderr,
+        )
     return 0
 
 

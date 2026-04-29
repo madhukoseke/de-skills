@@ -145,7 +145,7 @@ After the table, provide a final **Recommendation** (APPROVE, REQUEST_CHANGES, o
 
 ## 6. Security Items
 
-> Reference: Principle 9 (Lineage is not optional) and Principle 10 (Environments must be code-identical).
+> Reference: Principle W009 (Lineage is not optional) and Principle W010 (Environments must be code-identical).
 
 | # | Item | What to Check |
 |---|------|---------------|
@@ -162,7 +162,7 @@ After the table, provide a final **Recommendation** (APPROVE, REQUEST_CHANGES, o
 
 ## 7. Cost Items
 
-> Reference: Principle 5 (Cost is a feature).
+> Reference: Principle W005 (Cost is a feature).
 
 | # | Item | What to Check |
 |---|------|---------------|

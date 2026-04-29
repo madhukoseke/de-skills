@@ -11,9 +11,14 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   package:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -23,6 +28,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+
+      - name: Install validator dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r tests/requirements.txt
 
       - name: Validate SKILL.md frontmatter
         run: |
@@ -79,6 +91,7 @@ jobs:
           python3 scripts/build_adapters.py --check
           python3 tests/validate_adapters.py
           python3 tests/validate_provider_fixtures.py
+          python3 tests/validate_json_responses.py
 
       - name: Validate Python script syntax
         run: |
@@ -110,3 +123,5 @@ jobs:
         with:
           name: data-engineering-best-practices-${{ steps.version.outputs.value }}
           path: release-artifacts/
+        # Note: upload-artifact does not require contents:write at the workflow level —
+        # it uses the runner's GITHUB_TOKEN scoped to actions:write only.

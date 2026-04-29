@@ -158,7 +158,7 @@ Use snapshots when you need full history of dimension changes. The snapshot tabl
 
 ## 4. Testing Strategy
 
-> **Non-negotiable (Principle 3):** Fail loud. Silent data loss is worse than a failed run. dbt tests are your first line of defense.
+> **Non-negotiable (Principle W003 — Fail loud):** Silent data loss is worse than a failed run. dbt tests are your first line of defense.
 
 ### Test Layers
 
@@ -371,43 +371,84 @@ This eliminates brittle `ExternalTaskSensor` chains for extraction → transform
 
 ### profiles.yml: Environment-Aware Targets
 
+The shape is identical across warehouses; only the `type:` block and credential fields change. Authenticate via short-lived credentials (OIDC / IAM / OAuth) where supported and **never** commit a populated `profiles.yml` — pull every secret from env vars or a secret manager.
+
+#### Vendor-neutral skeleton (recommended)
+
 ```yaml
 # profiles.yml
 my_project:
-  target: dev
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
   outputs:
     dev:
-      type: snowflake        # or redshift, databricks, postgres, etc.
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
-      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
-      database: my_project_dev
-      schema: "{{ env_var('DBT_SCHEMA', 'dbt_' ~ env_var('DBT_USER', 'dev')) }}"
-      warehouse: dev_warehouse
+      type: <warehouse>            # snowflake | bigquery | databricks | redshift | postgres | duckdb | trino
       threads: 4
+      schema: "{{ env_var('DBT_SCHEMA', 'dbt_' ~ env_var('DBT_USER', 'dev')) }}"
+      # warehouse-specific fields (account / project / host / catalog) injected per the alternatives below
 
     staging:
-      type: snowflake
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
-      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
-      database: my_project_staging
-      schema: "{{ var('target_dataset') }}"
-      warehouse: staging_warehouse
+      type: <warehouse>
       threads: 8
+      schema: "{{ var('target_dataset') }}"
 
     prod:
-      type: snowflake
-      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
-      user: "{{ env_var('SNOWFLAKE_USER') }}"
-      password: "{{ env_var('SNOWFLAKE_PASSWORD') }}"
-      database: my_project_prod
-      schema: "{{ var('target_dataset') }}"
-      warehouse: prod_warehouse
+      type: <warehouse>
       threads: 16
+      schema: "{{ var('target_dataset') }}"
 ```
 
-### generate_schema_name macro (Principle 10: Environments must be code-identical)
+#### Warehouse-specific fields
+
+Drop one of the blocks below into each environment under `outputs:`. Field names match the official `dbt-<adapter>` plugins.
+
+```yaml
+# Snowflake
+type: snowflake
+account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+user: "{{ env_var('SNOWFLAKE_USER') }}"
+authenticator: externalbrowser   # or 'oauth' for SSO
+database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+
+# BigQuery
+type: bigquery
+method: oauth                    # or 'service-account-json' / 'service-account' for CI
+project: "{{ env_var('GCP_PROJECT') }}"
+dataset: "{{ var('target_dataset') }}"
+location: "{{ env_var('BQ_LOCATION', 'US') }}"
+priority: interactive
+
+# Databricks (Unity Catalog)
+type: databricks
+host: "{{ env_var('DATABRICKS_HOST') }}"
+http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+catalog: "{{ env_var('DATABRICKS_CATALOG') }}"
+token: "{{ env_var('DATABRICKS_TOKEN') }}"
+
+# Redshift
+type: redshift
+host: "{{ env_var('REDSHIFT_HOST') }}"
+port: 5439
+dbname: "{{ env_var('REDSHIFT_DATABASE') }}"
+user: "{{ env_var('REDSHIFT_USER') }}"
+ra3_node: true
+
+# Postgres / Trino / DuckDB
+type: postgres
+host: "{{ env_var('PG_HOST') }}"
+port: 5432
+dbname: "{{ env_var('PG_DATABASE') }}"
+user: "{{ env_var('PG_USER') }}"
+password: "{{ env_var('PG_PASSWORD') }}"
+```
+
+**Cross-warehouse rules:**
+- Use `env_var(...)` with a default only for non-secret fields (region, schema, role). Never default a secret.
+- Increase `threads` proportional to warehouse compute size (4 dev / 8 staging / 16 prod is a fine starting point on a small-medium warehouse; raise to 32+ on large warehouses).
+- Always declare an explicit target — never rely on the local default profile in CI/CD.
+
+### generate_schema_name macro (Principle W010 — Environments must be code-identical)
 
 Override dbt's default schema naming to route models to the correct schema per environment:
 
@@ -439,7 +480,7 @@ This ensures `models/marts/core/fact_orders.sql` lands in:
 
 ---
 
-## 7. Lineage Documentation (Principle 9)
+## 7. Lineage Documentation (Principle W009)
 
 Every dbt model must document its lineage via `ref()` and `source()`. Never hardcode table paths.
 
@@ -459,7 +500,295 @@ Run `dbt docs generate && dbt docs serve` after every significant model addition
 
 ---
 
-## 8. Anti-Patterns
+## 8. Model Contracts (dbt 1.5+)
+
+A contract pins a model's column list and types. The warehouse refuses to materialize the model if the SELECT drifts. **Required for any model exposed across teams** (mart layer, semantic-layer inputs, downstream API consumers).
+
+```yaml
+# models/marts/core/_core.yml
+version: 2
+
+models:
+  - name: fact_orders
+    description: "One row per order. Contract is enforced — column names and types are stable for downstream consumers."
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: order_id
+        data_type: varchar(64)
+        constraints:
+          - type: not_null
+          - type: primary_key
+      - name: customer_id
+        data_type: varchar(64)
+        constraints:
+          - type: not_null
+          - type: foreign_key
+            expression: "{{ ref('dim_customers') }} (customer_id)"
+      - name: order_date
+        data_type: date
+        constraints:
+          - type: not_null
+      - name: total_amount
+        data_type: numeric(18, 2)
+```
+
+**Notes:**
+- Constraint enforcement varies by warehouse. Most enforce `not_null` and `primary_key`; cross-table `foreign_key` constraints are typically advisory at compile-time only.
+- A contract change is a breaking change. Bump the model version (§10) instead of editing in place.
+
+---
+
+## 9. Groups & Access (dbt 1.5+ / Mesh)
+
+**Groups** scope models to a team (owner, allowed downstream consumers). **Access** declares the model's blast radius. Together they enable [dbt Mesh](https://docs.getdbt.com/docs/collaborate/govern/about-model-governance) — one shared graph of dbt projects with explicit cross-project boundaries.
+
+### Declare groups
+
+```yaml
+# dbt_project.yml
+groups:
+  - name: core
+    owner:
+      name: Data Platform
+      email: data-platform@example.com
+  - name: finance
+    owner:
+      name: Finance Engineering
+      email: finance-eng@example.com
+```
+
+### Apply group + access on each model
+
+```yaml
+# models/marts/core/_core.yml
+models:
+  - name: fact_orders
+    group: core
+    access: public          # private | protected | public
+    description: "Order fact. Public — finance and marketing both consume it."
+
+  - name: int_orders_pricing_logic
+    group: core
+    access: private         # only models in 'core' may ref()
+    description: "Internal pricing computation. Not stable; do not depend on it."
+
+  - name: fct_finance_revenue
+    group: finance
+    access: protected       # ref()-able by other groups in this project, but not from another dbt project
+```
+
+| Access level | Same group | Other group, same project | Other dbt project (Mesh) |
+|--------------|:----------:|:-------------------------:|:------------------------:|
+| `private`    | ✅         | ❌                        | ❌                       |
+| `protected`  | ✅         | ✅                        | ❌                       |
+| `public`     | ✅         | ✅                        | ✅                       |
+
+**Rule:** Default new mart models to `protected`. Only flip to `public` once the contract (§8) and tests are in place — `public` advertises stability to consumers outside this dbt project.
+
+### Cross-project consumption (dbt Mesh)
+
+In a downstream project, consume an upstream public model via `{{ ref('upstream_project', 'fact_orders') }}`. Configure the upstream project under `dependencies.yml`:
+
+```yaml
+# dependencies.yml (downstream project)
+projects:
+  - name: platform_core
+```
+
+---
+
+## 10. Model Versions (dbt 1.5+)
+
+Use versions when a contract-breaking change is unavoidable. Both versions exist concurrently; consumers migrate on their own clock.
+
+```yaml
+# models/marts/core/_core.yml
+models:
+  - name: fact_orders
+    latest_version: 2
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: order_id
+      - name: customer_id
+      - name: order_date
+      - name: order_status
+      - name: total_amount
+
+    versions:
+      - v: 1
+        deprecation_date: "2026-09-30"     # callers must migrate by this date
+        defined_in: fact_orders_v1         # SQL file name (without .sql)
+        columns:
+          - include: all
+            exclude: [order_status]        # v1 lacks order_status
+
+      - v: 2
+        columns:
+          - include: all
+```
+
+```sql
+-- models/marts/core/fact_orders_v1.sql
+SELECT
+  order_id,
+  customer_id,
+  order_date,
+  total_amount
+FROM {{ ref('int_orders_with_customers') }}
+
+-- models/marts/core/fact_orders_v2.sql
+SELECT
+  order_id,
+  customer_id,
+  order_date,
+  order_status,
+  total_amount
+FROM {{ ref('int_orders_with_customers') }}
+```
+
+Consumers reference a specific version: `{{ ref('fact_orders', v=2) }}`. After `deprecation_date`, the v1 model is removed in a follow-up PR.
+
+---
+
+## 11. Semantic Layer & Metrics (dbt 1.6+)
+
+Define metrics once in dbt; consume them via the dbt Semantic Layer (or compatible BI tools that speak MetricFlow). Eliminates the "every dashboard re-implements `gross_revenue`" anti-pattern.
+
+```yaml
+# models/marts/core/_semantic.yml
+semantic_models:
+  - name: orders
+    model: ref('fact_orders')
+    defaults:
+      agg_time_dimension: order_date
+    entities:
+      - name: order_id
+        type: primary
+      - name: customer_id
+        type: foreign
+    dimensions:
+      - name: order_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: order_status
+        type: categorical
+    measures:
+      - name: order_count
+        agg: count
+        expr: order_id
+      - name: gross_revenue
+        agg: sum
+        expr: total_amount
+
+metrics:
+  - name: gross_revenue
+    label: "Gross Revenue"
+    type: simple
+    type_params:
+      measure: gross_revenue
+
+  - name: gross_revenue_30d
+    label: "Gross Revenue (30d rolling)"
+    type: cumulative
+    type_params:
+      measure: gross_revenue
+      window: 30 days
+
+  - name: revenue_per_active_customer
+    label: "Revenue per Active Customer"
+    type: ratio
+    type_params:
+      numerator: gross_revenue
+      denominator: order_count
+```
+
+Query at runtime:
+
+```bash
+# Native MetricFlow CLI (dbt Cloud Semantic Layer or dbt-core 1.6+)
+mf query --metrics gross_revenue --group-by metric_time__day,order_status --order metric_time__day
+```
+
+**Rules:**
+- Define metrics in the same group/access as their underlying mart so governance is consistent.
+- Every metric must reference a measure on a contracted (§8) model. Do not build metrics on `view`-materialized staging models.
+- BI tools that don't speak MetricFlow can still query via JDBC/SQL through the dbt Cloud Semantic Layer endpoint.
+
+---
+
+## 12. Warehouse-Managed Incremental Tables
+
+When the warehouse can keep a materialized result fresh on its own, you may not need a dbt `incremental` model at all. These options let the **warehouse** decide when to refresh and how to reconcile state, in exchange for some loss of orchestration control. Useful for low-latency marts where dbt's run cadence is the bottleneck.
+
+| Capability | dbt `incremental` | Snowflake Dynamic Table | BigQuery Materialized View / managed Iceberg | Databricks Live Table (DLT) | Redshift Materialized View |
+|---|---|---|---|---|---|
+| Refresh trigger | Airflow / cron | Lag SLA (`TARGET_LAG`) | Auto / on query | Continuous or triggered | Auto / scheduled |
+| State tracking | Watermark in `is_incremental()` | Warehouse | Warehouse | Warehouse | Warehouse |
+| MERGE semantics | Author writes | Built-in | Limited (append + dedupe in def) | Built-in | Limited |
+| Backfill / replay | `--full-refresh` | `ALTER ... REFRESH` | `BQ.REFRESH_MATERIALIZED_VIEW` | `FULL REFRESH` | `REFRESH MATERIALIZED VIEW` |
+| Cost model | Compute per run | Continuous, billed against lag SLA | Storage + scan-on-refresh | Continuous (clusters always-on) | Storage + scan-on-refresh |
+| Best for | Hourly/daily marts, complex MERGE | Sub-15-minute marts on Snowflake | Pre-aggregated dashboards on BigQuery | Streaming + batch unified | Reporting marts on Redshift |
+
+### Defining via dbt configs
+
+dbt 1.6+ ships adapter-specific materializations that wrap the native object so it stays in your dbt graph:
+
+```sql
+-- Snowflake Dynamic Table (dbt-snowflake 1.6+)
+{{
+  config(
+    materialized = 'dynamic_table',
+    target_lag = '5 minutes',
+    snowflake_warehouse = 'transformation_wh',
+    on_configuration_change = 'apply'
+  )
+}}
+
+SELECT order_id, customer_id, order_date, total_amount
+FROM {{ ref('stg_orders') }}
+```
+
+```sql
+-- BigQuery Materialized View (dbt-bigquery 1.6+)
+{{
+  config(
+    materialized = 'materialized_view',
+    enable_refresh = true,
+    refresh_interval_minutes = 30,
+    cluster_by = ['order_date']
+  )
+}}
+
+SELECT order_date, COUNT(*) AS order_count, SUM(total_amount) AS gross_revenue
+FROM {{ ref('fact_orders') }}
+GROUP BY order_date
+```
+
+```sql
+-- Databricks Live Table (dbt-databricks 1.6+)
+{{
+  config(
+    materialized = 'streaming_table',
+    schedule = {'interval': '5 minutes'}
+  )
+}}
+
+SELECT * FROM stream({{ ref('stg_orders') }})
+```
+
+**Rule of thumb:**
+- If your refresh need is **cron-able with > 30 minute granularity**, stay with `incremental`. dbt's MERGE control + `--full-refresh` semantics are easier to reason about.
+- If you need **< 15 minute freshness on a dashboard mart**, evaluate the warehouse-native option first; you remove a DAG and a watermark column.
+- **Always** declare an SLO and a freshness check (Playbook 05 §1) — the warehouse's "best-effort" refresh is not free of skew.
+
+---
+
+## 13. Anti-Patterns
 
 | Anti-Pattern | Problem | Fix |
 |---|---|---|

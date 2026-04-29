@@ -109,6 +109,35 @@ access:
   column_level_security: false      # Whether column-level masking is applied
   pii_handling: ""                  # masked | encrypted | tokenized | none
 
+# === Retention === (Playbook 14 §2 — required when classification == restricted or any pii: true)
+retention:
+  period_days: 0                    # Default retention for the dataset (set explicitly; 0 means undefined)
+  hard_delete_after: 0              # Maximum allowed retention before hard delete; 0 means undefined
+  legal_hold: false                 # Set true only on legal counsel request; blocks deletion
+  basis: ""                         # Legal/business basis (e.g., "contractual; analytics; reviewed annually")
+  deletion_method: ""               # overwrite + vacuum | soft tombstone | crypto_erasure
+
+# === Governance === (Playbook 14 §2)
+governance:
+  classification: ""                # mirror of access.classification; restricted | confidential | internal | public
+  masking_policy: ""                # Named policy in your masking layer (e.g., "tokenize_email_v2"); empty if not applicable
+  encryption_at_rest: ""            # e.g., "aes-256-gcm" | "aes-256-gcm-cmek" (CMEK / customer-managed key)
+  encryption_in_transit: ""         # e.g., "tls-1.2-min"
+  audit_log_dataset: ""             # Where reads of this dataset are logged (e.g., "audit.data_access_log")
+  data_residency: ""                # ISO 3166 country/region code (e.g., "EU", "US", "JP")
+  cross_border_transfer: "none"     # none | adequacy_decision | scc | bcr | consent_based
+  consent_keyed: false              # Whether rows carry an explicit consent legal-basis column
+  consent_column: ""                # Column holding the legal basis (if consent_keyed)
+
+# === Subject Rights === (Playbook 14 §6 — required for any dataset linkable to a subject)
+subject_rights:
+  right_to_erasure: false           # GDPR Art. 17 / CCPA §1798.105
+  right_to_access: false            # GDPR Art. 15 / CCPA §1798.110
+  right_to_portability: false       # GDPR Art. 20
+  identifiable_by: []               # Columns that link rows to a subject (e.g., [customer_id, customer_email])
+  erasure_strategy: ""              # tombstone_and_purge | crypto_erasure | full_rewrite | not_applicable
+  erasure_sla_hours: 0              # Time from request to completion (regulatory typical: <= 720 hours / 30 days)
+
 # === Downstream Dependencies ===
 consumers:
   - name: ""                        # Consumer name

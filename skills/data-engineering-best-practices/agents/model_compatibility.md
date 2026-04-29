@@ -1,5 +1,7 @@
 # Model Compatibility
 
+> Hand-curated. Last reviewed: 2026-04-29. Next review due: 2026-05-29. When refreshing, bump the date and update model lists below.
+
 This file documents tested or recommended model families for the provider adapters in `agents/`.
 
 ## OpenAI / Codex
@@ -18,12 +20,15 @@ This file documents tested or recommended model families for the provider adapte
 
 - Adapter: `agents/anthropic.yaml`
 - Recommended models:
-  - `claude-sonnet-4-5`
-  - `claude-opus-4-1`
+  - `claude-opus-4-7` — top-end reasoning; use for DESIGN, DIAGNOSE, and complex PR_REVIEW
+  - `claude-opus-4-7[1m]` — 1M-context variant; use for long DAG diffs or multi-file repo review
+  - `claude-sonnet-4-6` — balanced cost/quality default for most modes
+  - `claude-haiku-4-5` — low-latency / lower-cost path for SQL, DBT, or DATA_QUALITY checks
 - Notes:
   - Good at long-form reasoning and clarification-first behavior
   - May produce more prose around tables unless prompted with explicit formatting constraints
   - Keep the canonical contract in the `system` field, separate from user-pasted code or diffs
+  - Static system prompts benefit from prompt caching (`cache_control: {type: "ephemeral"}`); see `context_budget.md`
 
 ## Gemini
 

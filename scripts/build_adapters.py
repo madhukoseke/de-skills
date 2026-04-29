@@ -66,6 +66,9 @@ def render_metadata(
         "canonical_instruction_file": skill_manifest["canonical_instruction_file"],
         "canonical_instruction_sha256": skill_hash,
     }
+    optimization = provider_meta.get("optimization")
+    if optimization:
+        payload["optimization"] = optimization
     return json.dumps(payload, indent=2) + "\n"
 
 

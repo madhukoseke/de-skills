@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = ROOT / "skills" / "data-engineering-best-practices"
@@ -20,77 +22,13 @@ def load_json(path: Path) -> dict:
 
 
 def load_yaml(path: Path) -> dict:
-    text = path.read_text(encoding="utf-8")
-    result: dict[str, object] = {}
-    current_section: str | None = None
-
-    for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        line = raw_line.rstrip()
-        stripped = line.strip()
-
-        if not stripped:
-            continue
-        if stripped.startswith("#"):
-            continue
-
-        if not raw_line.startswith(" "):
-            if not stripped.endswith(":"):
-                raise ValueError(
-                    f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: expected top-level section"
-                )
-            current_section = stripped[:-1]
-            if not current_section:
-                raise ValueError(
-                    f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: empty section name"
-                )
-            result[current_section] = {}
-            continue
-
-        if current_section is None:
-            raise ValueError(
-                f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: nested key before section"
-            )
-        if not raw_line.startswith("  "):
-            raise ValueError(
-                f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: nested keys must use two spaces"
-            )
-
-        nested = raw_line[2:].strip()
-        if ":" not in nested:
-            raise ValueError(
-                f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: expected key/value pair"
-            )
-        key, value = nested.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            raise ValueError(
-                f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: empty key"
-            )
-
-        parsed: object
-        if value.lower() == "true":
-            parsed = True
-        elif value.lower() == "false":
-            parsed = False
-        elif len(value) >= 2 and (
-            (value.startswith('"') and value.endswith('"'))
-            or (value.startswith("'") and value.endswith("'"))
-        ):
-            parsed = value[1:-1]
-        else:
-            parsed = value
-
-        section = result.get(current_section)
-        if not isinstance(section, dict):
-            raise ValueError(
-                f"malformed YAML in {path.relative_to(ROOT)}:{lineno}: section must be a mapping"
-            )
-        section[key] = parsed
-
-    if not isinstance(result, dict) or not result:
+    try:
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(f"malformed YAML in {path.relative_to(ROOT)}: {exc}") from exc
+    if not isinstance(loaded, dict) or not loaded:
         raise ValueError(f"adapter file must contain a YAML mapping: {path.relative_to(ROOT)}")
-    return result
+    return loaded
 
 
 def validate_adapter_yaml(provider: str, path: Path) -> list[str]:

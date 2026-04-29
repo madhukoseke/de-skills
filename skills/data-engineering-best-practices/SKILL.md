@@ -13,7 +13,7 @@ description: >
   Spark job, data modeling, schema management, orchestration, testing, incident.
 metadata:
   tags: data-engineering, airflow, pipeline, streaming, dbt, data-quality, warehouse, sql, spark, data-modeling, schema, orchestration, testing
-  version: "4.0"
+  version: "5.0.0"
 license: MIT
 ---
 
@@ -194,20 +194,20 @@ budget, truncate `tradeOffs` rows and `nextSteps` before dropping `summary` or `
 
 ## Non-Negotiable Principles
 
-These principles override any conflicting guidance. Cite the relevant principle when it applies.
+These principles override any conflicting guidance. Cite the relevant principle by ID (`W001`–`W012`) when it applies. **The IDs are stable** — once assigned they do not move; new principles append. Consumers and downstream tooling may key on these IDs (see `schemas/skill_response.schema.json` `principlesCited`).
 
-1. **Idempotency first** — Every pipeline operation must produce the same result when re-run. Use MERGE or DELETE+INSERT, never bare INSERT for dimension/fact loads.
-2. **Partition/index strategically** — Large tables must be partitioned or indexed based on the primary query filter pattern. Avoid full table scans in production queries.
-3. **Fail loud** — Pipelines must fail visibly on unexpected data. Silent data loss is worse than a failed run. Use `assert` checks, row-count validations, and schema enforcement.
-4. **Schema is a contract** — Every table boundary (source → staging → mart) must have a documented data contract. Breaking changes require versioned migration with notice period.
-5. **Cost is a feature** — Every query and storage decision must consider compute and storage cost. Prefer partition pruning and selective column reads over full scans.
-6. **Retry with backoff** — All external calls must use exponential backoff with jitter. Hard-code: `retries=3, retry_delay=timedelta(minutes=2), retry_exponential_backoff=True, max_retry_delay=timedelta(minutes=30)`.
-7. **Observability by default** — Every pipeline must emit: row counts in/out, execution duration, data freshness timestamp. Alert on anomalies, not just failures.
-8. **Separation of concerns** — Orchestration (Airflow) must not contain business logic. SQL stays in SQL files. Transformations stay in dbt or dedicated modules.
-9. **Lineage is not optional** — Every transformation must declare its source tables and output tables. Changes to upstream schemas must be traceable to downstream consumers before deployment.
-10. **Environments must be code-identical** — Dev, staging, and prod differ only in data volume and access controls, never in code or configuration. Per-environment branches, hardcoded env names in DAG logic, and manual prod-only patches are forbidden.
-11. **Test at every layer** — Unit tests for transform logic, contract tests at every pipeline boundary, integration tests against real databases, and idempotency tests for every write. Never rely on production data to discover bugs.
-12. **Schema-first design** — Design and document the output schema before writing pipeline code. Register schemas in a schema registry for streaming; document in data_contract.yaml for batch. Detect and fail on schema drift at ingest time.
+1. **(W001) Idempotency first** — Every pipeline operation must produce the same result when re-run. Use MERGE or DELETE+INSERT, never bare INSERT for dimension/fact loads.
+2. **(W002) Partition/index strategically** — Large tables must be partitioned or indexed based on the primary query filter pattern. Avoid full table scans in production queries.
+3. **(W003) Fail loud** — Pipelines must fail visibly on unexpected data. Silent data loss is worse than a failed run. Use `assert` checks, row-count validations, and schema enforcement.
+4. **(W004) Schema is a contract** — Every table boundary (source → staging → mart) must have a documented data contract. Breaking changes require versioned migration with notice period.
+5. **(W005) Cost is a feature** — Every query and storage decision must consider compute and storage cost. Prefer partition pruning and selective column reads over full scans.
+6. **(W006) Retry with backoff** — All external calls must use exponential backoff with jitter. Hard-code: `retries=3, retry_delay=timedelta(minutes=2), retry_exponential_backoff=True, max_retry_delay=timedelta(minutes=30)`.
+7. **(W007) Observability by default** — Every pipeline must emit: row counts in/out, execution duration, data freshness timestamp. Alert on anomalies, not just failures.
+8. **(W008) Separation of concerns** — Orchestration (Airflow) must not contain business logic. SQL stays in SQL files. Transformations stay in dbt or dedicated modules.
+9. **(W009) Lineage is not optional** — Every transformation must declare its source tables and output tables. Changes to upstream schemas must be traceable to downstream consumers before deployment.
+10. **(W010) Environments must be code-identical** — Dev, staging, and prod differ only in data volume and access controls, never in code or configuration. Per-environment branches, hardcoded env names in DAG logic, and manual prod-only patches are forbidden.
+11. **(W011) Test at every layer** — Unit tests for transform logic, contract tests at every pipeline boundary, integration tests against real databases, and idempotency tests for every write. Never rely on production data to discover bugs.
+12. **(W012) Schema-first design** — Design and document the output schema before writing pipeline code. Register schemas in a schema registry for streaming; document in data_contract.yaml for batch. Detect and fail on schema drift at ingest time.
 
 ## Playbook Index
 
@@ -218,15 +218,19 @@ Detailed procedural guidance for each domain:
 | Pipeline Design | [playbooks/01_pipeline_design.md](playbooks/01_pipeline_design.md) | Batch vs stream decision tree, hybrid patterns, architecture templates |
 | Airflow Reliability | [playbooks/02_airflow_reliability.md](playbooks/02_airflow_reliability.md) | Retry strategy, idempotency patterns, sensor best practices, backfill |
 | PR Review Checklist | [playbooks/03_pr_review_checklist.md](playbooks/03_pr_review_checklist.md) | Structured checklist for reviewing DE pull requests, security section |
-| dbt Patterns | [playbooks/04_dbt_patterns.md](playbooks/04_dbt_patterns.md) | Model structure, materializations, testing, dbt+Airflow integration |
+| dbt Patterns | [playbooks/04_dbt_patterns.md](playbooks/04_dbt_patterns.md) | Model structure, materializations, contracts, groups/access (Mesh), versions, Semantic Layer, warehouse-managed incremental tables, dbt+Airflow integration |
 | Data Quality | [playbooks/05_data_quality.md](playbooks/05_data_quality.md) | DQ rule types, SQL assertions, dbt tests, anomaly detection, quarantine |
-| Streaming Architecture | [playbooks/06_streaming_architecture.md](playbooks/06_streaming_architecture.md) | Brokers, partitioning, CDC, Flink/Spark Streaming, exactly-once, DLQ |
+| Streaming Architecture | [playbooks/06_streaming_architecture.md](playbooks/06_streaming_architecture.md) | Brokers, partitioning, CDC + replication patterns (Debezium / Fivetran HVR / Airbyte CDC / Striim), Flink/Spark Streaming, exactly-once, DLQ |
 | SQL Patterns | [playbooks/07_sql_patterns.md](playbooks/07_sql_patterns.md) | Window functions, idempotent DML, EXPLAIN, incremental loads, dialect portability |
 | Spark Patterns | [playbooks/08_spark_patterns.md](playbooks/08_spark_patterns.md) | Partitioning, skew, shuffle, Delta/Iceberg/Hudi, Spark Streaming, testing |
 | Data Modeling | [playbooks/09_data_modeling.md](playbooks/09_data_modeling.md) | Kimball, Data Vault, OBT, Medallion, SCD types, naming conventions |
 | Orchestration Patterns | [playbooks/10_orchestration_patterns.md](playbooks/10_orchestration_patterns.md) | Airflow vs Prefect vs Dagster, DAG-as-code, dynamic tasks, CI/CD |
 | Testing Strategies | [playbooks/11_testing_strategies.md](playbooks/11_testing_strategies.md) | DE testing pyramid, SQL/Spark/dbt unit tests, contract tests, E2E |
-| Schema Management | [playbooks/12_schema_management.md](playbooks/12_schema_management.md) | Schema registry, evolution compatibility, migrations, drift detection |
+| Schema Management | [playbooks/12_schema_management.md](playbooks/12_schema_management.md) | Schema registry (Confluent / AWS Glue / Apicurio), evolution compatibility, migrations, drift detection |
+| Lineage & Observability | [playbooks/13_lineage_and_observability.md](playbooks/13_lineage_and_observability.md) | OpenLineage, dbt manifest, catalog planes (DataHub / OpenMetadata / Marquez), SLO/SLI definition, burn-rate alerting |
+| Governance, PII, Compliance | [playbooks/14_governance_and_pii.md](playbooks/14_governance_and_pii.md) | Classification, masking, RBAC + RLS + CLS, audit logging, GDPR right-to-erasure, residency |
+| Cost Optimization | [playbooks/15_cost_optimization.md](playbooks/15_cost_optimization.md) | Attribution tagging, partition-pruning verification, reservations, storage tiers, compaction, retention as a cost lever |
+| ML & Vector Pipelines | [playbooks/16_ml_and_vector_pipelines.md](playbooks/16_ml_and_vector_pipelines.md) | Feature stores, training-serving skew, drift, vector DB selection, embedding contracts, RAG ingestion |
 
 ## Template Index
 
@@ -243,6 +247,7 @@ Fill in and output these templates when the mode calls for them:
 | SQL Review | [templates/sql_review.md](templates/sql_review.md) | SQL, PR_REVIEW |
 | Spark Job Review | [templates/spark_job_review.md](templates/spark_job_review.md) | SPARK, PR_REVIEW |
 | Data Model Design | [templates/data_model_design.md](templates/data_model_design.md) | DATA_MODELING, DESIGN |
+| SLO Definition | [templates/slo_definition.md](templates/slo_definition.md) | DESIGN, AIRFLOW, STREAMING, DBT |
 
 ## Examples
 

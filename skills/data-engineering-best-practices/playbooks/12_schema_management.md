@@ -68,7 +68,56 @@ latest = glue.get_schema_version(
     SchemaId={"SchemaName": "orders", "RegistryName": "de-schemas"},
     SchemaVersionNumber={"LatestVersion": True},
 )
+
+# Read with Avro / Protobuf via aws-glue-schema-registry library on producers
+# ProducerConfig: SchemaName, RegistryName, SchemaAutoRegistrationEnabled=False
+# Consumer side discovers schemas by ARN embedded in the message header.
 ```
+
+### Apicurio Registry (open source / Red Hat)
+
+Apicurio implements the same wire-compatible REST API as Confluent Schema Registry, so existing Confluent serializers point at it via `schema.registry.url`. It also exposes a richer Core REST API for non-Kafka use cases (Avro, Protobuf, JSON Schema, OpenAPI, AsyncAPI all in one registry).
+
+```python
+# Confluent-compatible API (drop-in replacement for the snippet above)
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+
+client = SchemaRegistryClient({
+    "url": "https://apicurio.example.com/apis/ccompat/v7",
+})
+serializer = AvroSerializer(client, order_schema_str)
+```
+
+```bash
+# Apicurio Core REST API — register and pin a compatibility level per artifact
+curl -X POST "https://apicurio.example.com/apis/registry/v3/groups/orders/artifacts" \
+  -H "Content-Type: application/vnd.create.extended+json" \
+  -H "X-Registry-ArtifactType: AVRO" \
+  -d '{
+    "artifactId": "order_placed",
+    "firstVersion": {
+      "version": "1.0.0",
+      "content": {
+        "content": "<escaped-avro-schema-json>",
+        "contentType": "application/json"
+      }
+    }
+  }'
+
+curl -X PUT "https://apicurio.example.com/apis/registry/v3/groups/orders/artifacts/order_placed/rules/COMPATIBILITY" \
+  -H "Content-Type: application/json" \
+  -d '{"config": "FULL"}'
+```
+
+**Choosing between registries:**
+
+| Need | Registry |
+|------|----------|
+| Already on a managed Kafka offering with bundled registry | The bundled one |
+| AWS-native producers/consumers, already using IAM and Glue | AWS Glue Schema Registry |
+| Self-hosted, multi-format (Avro + Protobuf + JSON Schema + OpenAPI), open source | Apicurio Registry |
+| Confluent-compatible API + advanced governance (export/import, audit, rules per artifact) | Apicurio (with `ccompat` endpoint) or Confluent Schema Registry |
 
 ---
 

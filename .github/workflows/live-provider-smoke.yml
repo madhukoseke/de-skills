@@ -35,3 +35,55 @@ jobs:
             --provider openai \
             --out-dir "${GITHUB_WORKSPACE}/tests/benchmark/live_runs/smoke-${GITHUB_RUN_ID}" \
             --max-cases 1
+
+  anthropic_smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run live benchmark (first prompt only)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY is not set in repository secrets; skipping live smoke."
+            exit 0
+          fi
+          mkdir -p tests/benchmark/live_runs
+          cd tests/benchmark/live
+          python3 run_live_benchmark.py \
+            --provider anthropic \
+            --out-dir "${GITHUB_WORKSPACE}/tests/benchmark/live_runs/smoke-${GITHUB_RUN_ID}" \
+            --max-cases 1
+
+  gemini_smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run live benchmark (first prompt only)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "GEMINI_API_KEY is not set in repository secrets; skipping live smoke."
+            exit 0
+          fi
+          mkdir -p tests/benchmark/live_runs
+          cd tests/benchmark/live
+          python3 run_live_benchmark.py \
+            --provider gemini \
+            --out-dir "${GITHUB_WORKSPACE}/tests/benchmark/live_runs/smoke-${GITHUB_RUN_ID}" \
+            --max-cases 1

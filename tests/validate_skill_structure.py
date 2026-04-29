@@ -86,7 +86,20 @@ def principles_from_skill(raw: str) -> int:
     if start == -1:
         die("SKILL.md missing ## Non-Negotiable Principles")
     chunk = text[start : start + 8000]
-    return len(re.findall(r"(?m)^\d+\. \*\*", chunk))
+    matches = re.findall(r"(?m)^(\d+)\. \*\*\(W(\d{3})\)", chunk)
+    if not matches:
+        die("Principles must be tagged with stable IDs in the form '(W0NN)' (e.g., '(W001)')")
+    expected = list(range(1, len(matches) + 1))
+    actual_numbers = [int(num) for num, _id in matches]
+    actual_ids = [int(pid) for _num, pid in matches]
+    if actual_numbers != expected:
+        die(f"Principle list-numbers must run 1..N contiguously; got {actual_numbers}")
+    if actual_ids != expected:
+        die(
+            f"Principle IDs must run W001..W{len(matches):03d} contiguously; "
+            f"got W{', W'.join(f'{p:03d}' for p in actual_ids)}"
+        )
+    return len(matches)
 
 
 def validate_readme_principles(raw: str, expected_skill_principles: int) -> None:

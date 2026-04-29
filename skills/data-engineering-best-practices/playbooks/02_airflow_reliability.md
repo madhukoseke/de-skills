@@ -15,7 +15,7 @@ This playbook codifies production-tested patterns for building reliable Airflow 
 
 ## 1. Retry Strategy
 
-> **Non-negotiable (Principle 6):** All external calls must use exponential backoff with jitter.
+> **Non-negotiable (Principle W006 — Retry with backoff):** All external calls must use exponential backoff with jitter.
 
 Every task that touches an external system (warehouse, APIs, object storage, databases) must define retries explicitly. Never rely on Airflow's defaults.
 
@@ -65,7 +65,7 @@ Retries mask transient errors. They do not fix: bad SQL, missing permissions, sc
 
 ## 2. Idempotency Patterns
 
-> **Non-negotiable (Principle 1):** Every pipeline operation must produce the same result when re-run. Use MERGE or DELETE+INSERT, never bare INSERT for dimension/fact loads.
+> **Non-negotiable (Principle W001 — Idempotency first):** Every pipeline operation must produce the same result when re-run. Use MERGE or DELETE+INSERT, never bare INSERT for dimension/fact loads.
 
 A task is idempotent if running it N times with the same inputs produces the same result as running it once. This is mandatory for safe retries, backfills, and manual re-runs.
 
@@ -274,7 +274,7 @@ branch >> [full_load, incremental_load] >> join
 
 ### Design for `{{ ds }}` from day one
 
-> **Non-negotiable (Principle 1):** Idempotency enables safe backfill. If your DAG is not idempotent, it cannot be backfilled.
+> **Non-negotiable (Principle W001 — Idempotency first):** Idempotency enables safe backfill. If your DAG is not idempotent, it cannot be backfilled.
 
 Every SQL query, file path, and API call in a task must be parameterized with the logical execution date — not `CURRENT_DATE()` or `datetime.now()`.
 
@@ -438,7 +438,7 @@ dags/
     └── constants.py                # connection IDs, schema names
 ```
 
-> **Non-negotiable (Principle 8):** SQL stays in SQL files. Python logic stays in Python modules. The DAG file is orchestration glue only.
+> **Non-negotiable (Principle W008 — Separation of concerns):** SQL stays in SQL files. Python logic stays in Python modules. The DAG file is orchestration glue only.
 
 ### Tagging
 
@@ -458,7 +458,7 @@ Use tier tags (`tier-1`, `tier-2`, `tier-3`) to indicate SLA priority.
 
 ## 9. Monitoring and Alerting
 
-> **Non-negotiable (Principle 7):** Every pipeline must emit row counts in/out, execution duration, data freshness timestamp. Alert on anomalies, not just failures.
+> **Non-negotiable (Principle W007 — Observability by default):** Every pipeline must emit row counts in/out, execution duration, data freshness timestamp. Alert on anomalies, not just failures.
 
 ### on_failure_callback
 
@@ -519,7 +519,7 @@ with DAG(
 
 ### Data quality assertions (Fail loud)
 
-> **Non-negotiable (Principle 3):** Silent data loss is worse than a failed run.
+> **Non-negotiable (Principle W003 — Fail loud):** Silent data loss is worse than a failed run.
 
 Add validation tasks after every load step:
 

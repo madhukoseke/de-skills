@@ -1,0 +1,48 @@
+{
+  "mode": "DESIGN",
+  "summary": "The recommended architecture is a batch EL pipeline with object storage landing and a warehouse load job, because a daily run with a 2-hour SLA does not require streaming complexity.",
+  "decision": "Use a daily architecture: Salesforce API → scheduled extractor (Airbyte/Fivetran or custom) → object storage (Parquet) → warehouse load job → staging → mart. Enforce idempotent partition loads and produce both a data contract and runbook deliverable.",
+  "rationale": "This architecture aligns with the SLA while minimizing operational overhead. It supports fail-loud behavior through explicit validation checks and predictable retries. The data contract defines schema and ownership boundaries; the runbook defines alerting, backfill, and incident response.",
+  "tradeOffs": [
+    {
+      "option": "Batch EL architecture",
+      "pros": "Simpler operations, lower cost, easier backfill",
+      "cons": "Not sub-minute freshness",
+      "whenToUse": "Daily/hourly reporting"
+    },
+    {
+      "option": "Streaming architecture",
+      "pros": "Low-latency updates",
+      "cons": "Higher complexity and cost",
+      "whenToUse": "True real-time use cases"
+    }
+  ],
+  "costEstimate": "Daily extract of typical Salesforce object volumes (≤1M rows/day) lands well under one warehouse credit-hour per run; storage in object landing ≈ 5–10 GB per object per month at standard Parquet compression. Validate against your specific volume and retention policy before sign-off.",
+  "principlesCited": ["W001", "W003", "W004", "W007", "W009"],
+  "lineage": {
+    "sources": ["salesforce.opportunity", "salesforce.account", "salesforce.user"],
+    "targets": ["warehouse.staging.stg_salesforce_opportunity", "warehouse.mart.fact_opportunity"]
+  },
+  "risks": [
+    {
+      "severity": "medium",
+      "description": "Salesforce API rate limits can cause partial daily extracts during peak load.",
+      "mitigation": "Set retries=3 with exponential backoff (W006); fall back to bulk API for >100K-row pulls; alert on partial completion via row-count parity check."
+    },
+    {
+      "severity": "low",
+      "description": "Schema drift in Salesforce custom fields can break the contract silently.",
+      "mitigation": "Pin the contract to fields the consumer actually uses; treat new custom fields as additive (W004) and drop them at the staging boundary unless explicitly added to the contract."
+    }
+  ],
+  "nextSteps": [
+    "Finalize source objects, destination tables, and daily load window.",
+    "Draft and approve the data contract with schema, SLAs, and ownership.",
+    "Implement the runbook with escalation, retries, and backfill procedure.",
+    "Add idempotent partition overwrite and row-count reconciliation checks."
+  ],
+  "template": "templates/data_contract.yaml",
+  "dataContract": {
+    "path": "templates/data_contract.yaml"
+  }
+}
