@@ -6,7 +6,7 @@ tags: [data-quality, dq-report, observability, template]
 
 # Data Quality Report Template
 
-Fill in all sections. Used by DATA_QUALITY mode and DIAGNOSE mode. Referenced by `playbooks/07_data_quality.md`.
+Fill in all sections. Used by DATA_QUALITY mode and DIAGNOSE mode. Referenced by `playbooks/05_data_quality.md`.
 
 ---
 

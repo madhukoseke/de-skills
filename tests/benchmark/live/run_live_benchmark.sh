@@ -16,7 +16,7 @@ cmd=(
   python3 "$ROOT_DIR/tests/benchmark/live/run_live_benchmark.py"
   --provider "$PROVIDER"
   --out-dir "$RUN_DIR"
-  --prompts-file "$ROOT_DIR/tests/benchmark/live/prompts_v2.json"
+  --prompts-file "$ROOT_DIR/tests/benchmark/live/prompts_v3.json"
 )
 
 if [[ -n "${BENCHMARK_MODEL:-}" ]]; then
@@ -55,7 +55,7 @@ python3 "$ROOT_DIR/tests/benchmark/compare_skill_vs_no_skill.py" \
   --with-skill-dir "$RUN_DIR/with_skill" \
   --no-skill-dir "$RUN_DIR/no_skill" \
   --output-file "$RESULTS_DIR/comparison.json" \
-  --contract-file "$ROOT_DIR/tests/benchmark/contract/v2.json"
+  --contract-file "$ROOT_DIR/tests/benchmark/contract/v3.json"
 
 python3 "$ROOT_DIR/tests/benchmark/generate_skill_vs_no_skill_report.py" \
   --comparison-file "$RESULTS_DIR/comparison.json" \

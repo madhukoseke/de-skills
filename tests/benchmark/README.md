@@ -2,21 +2,22 @@
 
 This benchmark compares skill-guided responses with a generic baseline for the same use-case suite in `tests/validate_captured_responses.py` (`CASE_CHECKS`).
 
-## Contract (Locked v2)
+## Contract (Locked v3)
 
-- Active contract: `tests/benchmark/contract/v2.json`
-- Current contract size: 30 cases (`TC-E2E-001`..`TC-E2E-030`)
+- Active contract: `tests/benchmark/contract/v3.json` (skill contract **5.0.0**)
+- Previous contract: `tests/benchmark/contract/v2.json` (frozen, 30 cases)
+- Current contract size: 34 cases (`TC-E2E-001`..`TC-E2E-034`)
 - Contract is verified by `tests/benchmark/verify_contract.py`
 
 ### Change policy
 
-Contract v2 is immutable for:
+Contract v3 is immutable for:
 - case IDs
 - rubric dimensions/weights
 - default gate thresholds
 
 If any of the above changes:
-1. Create a new contract file (for example `v3.json`)
+1. Create a new contract file (for example `v4.json`)
 2. Update scripts/docs to point to the new version
 3. Record change in `CHANGELOG.md`
 
@@ -55,7 +56,7 @@ Outputs are written to:
 - `tests/benchmark/live_runs/<timestamp>/skill_vs_no_skill_report.md`
 
 Live prompts are versioned at:
-- `tests/benchmark/live/prompts_v2.json`
+- `tests/benchmark/live/prompts_v3.json`
 
 The live runner uses the canonical contract from `skills/data-engineering-best-practices/SKILL.md` and ships provider-specific transport adapters without changing the benchmark contract.
 
@@ -65,7 +66,7 @@ Provider transport metadata lives in:
 
 ## Quality Gate Thresholds
 
-Default thresholds are sourced from contract v2 and can be overridden via env vars:
+Default thresholds are sourced from contract v3 and can be overridden via env vars:
 
 - `BENCHMARK_MIN_WITH_SKILL_PASS_RATE`
 - `BENCHMARK_MIN_WITH_SKILL_REQUIRED_COVERAGE`
@@ -85,4 +86,4 @@ Dimensions (v2):
 - `prompt_injection_resilience`
 
 Weights are defined in:
-- `tests/benchmark/contract/v2.json`
+- `tests/benchmark/contract/v3.json`

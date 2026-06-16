@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_WITH_SKILL_DIR = ROOT / "tests" / "captured_responses"
 DEFAULT_NO_SKILL_DIR = ROOT / "tests" / "benchmark" / "no_skill"
 DEFAULT_OUTPUT_FILE = ROOT / "tests" / "benchmark" / "results" / "comparison.json"
-DEFAULT_CONTRACT_FILE = ROOT / "tests" / "benchmark" / "contract" / "v2.json"
+DEFAULT_CONTRACT_FILE = ROOT / "tests" / "benchmark" / "contract" / "v3.json"
 
 
 def load_validator_module():

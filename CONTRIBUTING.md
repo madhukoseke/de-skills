@@ -109,6 +109,7 @@ python3 scripts/build_adapters.py --check
 python3 tests/validate_adapters.py
 python3 tests/validate_provider_fixtures.py
 python3 tests/validate_json_responses.py
+python3 tests/validate_release_package.py
 ```
 
 - Validate example and provider transport scripts:

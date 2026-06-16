@@ -18,6 +18,10 @@ This document defines end-to-end test cases for the currently existing skill ass
   - `playbooks/10_orchestration_patterns.md`
   - `playbooks/11_testing_strategies.md`
   - `playbooks/12_schema_management.md`
+  - `playbooks/13_lineage_and_observability.md`
+  - `playbooks/14_governance_and_pii.md`
+  - `playbooks/15_cost_optimization.md`
+  - `playbooks/16_ml_and_vector_pipelines.md`
 - Templates:
   - `templates/data_contract.yaml`
   - `templates/airflow_dag_review.md`
@@ -28,6 +32,7 @@ This document defines end-to-end test cases for the currently existing skill ass
   - `templates/sql_review.md`
   - `templates/spark_job_review.md`
   - `templates/data_model_design.md`
+  - `templates/slo_definition.md`
 
 ## E2E Test Approach
 
@@ -438,6 +443,54 @@ Each test validates the full flow:
   - Includes timeline/blast-radius framing
   - Includes rollback or mitigation path
 
+### TC-E2E-031: Lineage and observability instrumentation
+
+- Objective: Validate lineage/observability guidance from playbook 13.
+- Input prompt:
+  - "Design OpenLineage instrumentation and SLO burn-rate alerts for our dbt + Airflow pipelines."
+- Expected mode:
+  - `DESIGN` (often with **AIRFLOW** and **DBT** cross-references)
+- Expected output checks:
+  - References OpenLineage or equivalent lineage emission
+  - Defines SLO/SLI and burn-rate or anomaly alerting
+  - Links to `playbooks/13_lineage_and_observability.md` and `templates/slo_definition.md`
+
+### TC-E2E-032: Governance and PII in PR review
+
+- Objective: Validate governance/PII controls from playbook 14.
+- Input prompt:
+  - "Review this PR that adds email and government_id columns to the customer mart without masking or classification."
+- Expected mode:
+  - `PR_REVIEW`
+- Expected output checks:
+  - Flags PII and recommends classification/masking
+  - References RBAC, RLS, audit, or GDPR-style controls
+  - Issues PASS/FAIL style review with risk assessment
+
+### TC-E2E-033: Cost optimization audit
+
+- Objective: Validate cost optimization guidance from playbook 15.
+- Input prompt:
+  - "Our warehouse spend doubled. Audit partition pruning and propose cost controls."
+- Expected mode:
+  - `SQL` or `WAREHOUSE`
+- Expected output checks:
+  - Uses partition pruning / predicate guidance
+  - Proposes attribution, reservation, compaction, or storage-tier controls
+  - Includes concrete cost or bytes-scanned framing
+
+### TC-E2E-034: ML and vector pipeline design
+
+- Objective: Validate ML/vector/RAG guidance from playbook 16.
+- Input prompt:
+  - "Design a RAG ingestion pipeline with embedding contracts and vector store selection."
+- Expected mode:
+  - `DESIGN` (often with **STREAMING** or **DATA_QUALITY** cross-references)
+- Expected output checks:
+  - Defines embedding contract or schema versioning
+  - Compares vector store options or selection criteria
+  - Addresses drift, idempotency, or training-serving skew guardrails
+
 ## Regression Test Cases
 
 ### TC-REG-001: Output format regression
@@ -466,7 +519,7 @@ Each test validates the full flow:
 
 ## Suggested Test Execution Matrix
 
-- Smoke set (per commit): `TC-E2E-001`, `003`, `005`, `007`, `012`, `013`, `018`, `024`, `026`, `030`, `TC-REG-003`
+- Smoke set (per commit): `TC-E2E-001`, `003`, `005`, `007`, `012`, `013`, `018`, `024`, `026`, `030`, `031`, `032`, `TC-REG-003`
 - Full set (release): all `TC-E2E-*` + all `TC-REG-*`
 
 ## Runnable Harness

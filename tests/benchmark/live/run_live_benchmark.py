@@ -14,7 +14,7 @@ from providers import get_provider
 
 
 ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_PROMPTS = ROOT / "tests" / "benchmark" / "live" / "prompts_v2.json"
+DEFAULT_PROMPTS = ROOT / "tests" / "benchmark" / "live" / "prompts_v3.json"
 DEFAULT_CONTRACT_FILE = ROOT / "skills" / "data-engineering-best-practices" / "SKILL.md"
 
 

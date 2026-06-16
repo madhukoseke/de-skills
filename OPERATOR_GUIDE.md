@@ -65,6 +65,7 @@ python3 scripts/build_adapters.py --check
 python3 tests/validate_adapters.py
 python3 tests/validate_provider_fixtures.py
 python3 tests/validate_json_responses.py
+python3 tests/validate_release_package.py
 python3 -m py_compile examples/*.py examples/airflow/*.py tests/benchmark/live/providers/*.py
 bash tests/run_e2e_harness.sh
 bash tests/benchmark/run_skill_vs_no_skill.sh
@@ -117,6 +118,7 @@ python3 tests/validate_skill_structure.py
 python3 tests/validate_adapters.py
 python3 tests/validate_provider_fixtures.py
 python3 tests/validate_json_responses.py
+python3 tests/validate_release_package.py
 ```
 
 Then use one of the example scripts in `examples/`.

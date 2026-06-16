@@ -7,9 +7,9 @@ This folder runs a live benchmark using the same prompts and same model in two m
 
 ## Inputs
 
-- Prompt suite: `prompts_v2.json`
+- Prompt suite: `prompts_v3.json`
 - Contract source: `skills/data-engineering-best-practices/SKILL.md`
-- Contract: `tests/benchmark/contract/v2.json`
+- Contract: `tests/benchmark/contract/v3.json`
 
 ## Run
 
@@ -28,8 +28,12 @@ Requires:
 Supported live providers:
 
 - `openai`: set `BENCHMARK_PROVIDER=openai`, `OPENAI_API_KEY`, optionally `OPENAI_MODEL`
-- `anthropic`: run `python3 tests/benchmark/live/run_live_benchmark.py --provider anthropic --model <model> --out-dir <dir>` with `ANTHROPIC_API_KEY`
-- `gemini`: run `python3 tests/benchmark/live/run_live_benchmark.py --provider gemini --model <model> --out-dir <dir>` with `GEMINI_API_KEY`
+- `anthropic`: set `BENCHMARK_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, and either `ANTHROPIC_MODEL` or `BENCHMARK_MODEL`
+- `gemini`: set `BENCHMARK_PROVIDER=gemini`, `GEMINI_API_KEY`, and either `GEMINI_MODEL` or `BENCHMARK_MODEL`
+
+The scheduled GitHub smoke workflow reads `ANTHROPIC_MODEL`, `GEMINI_MODEL`, and optional
+`OPENAI_MODEL` from repository variables. Anthropic and Gemini smoke jobs skip cleanly when
+the model variable is not configured.
 
 Dry-run example:
 
@@ -54,5 +58,5 @@ Per run:
 ## Notes
 
 - Use this for real model comparison to reduce synthetic-baseline bias.
-- Keep prompts and contract version aligned (`prompts_v2` with `contract/v2.json`).
+- Keep prompts and contract version aligned (`prompts_v3` with `contract/v3.json`).
 - Keep provider-specific transport logic out of the contract itself.

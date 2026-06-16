@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_FILE = ROOT / "tests" / "benchmark" / "contract" / "v2.json"
+CONTRACT_FILE = ROOT / "tests" / "benchmark" / "contract" / "v3.json"
 VALIDATOR_FILE = ROOT / "tests" / "validate_captured_responses.py"
 
 

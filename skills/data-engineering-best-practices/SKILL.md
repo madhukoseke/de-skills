@@ -7,10 +7,14 @@ description: >
   Use when designing pipelines, modeling warehouse schemas, reviewing Airflow DAGs,
   architecting streaming pipelines, reviewing DE pull requests, writing dbt models,
   auditing data quality, writing SQL, building Spark jobs, designing data models,
-  diagnosing pipeline failures, or managing schema evolution.
+  diagnosing pipeline failures, managing schema evolution, lineage and observability,
+  governance and PII, cost optimization, or ML/vector/RAG ingestion pipelines.
   Triggers on: pipeline design, DAG review, warehouse modeling, data contract,
   runbook, postmortem, streaming architecture, dbt, data quality, SQL review,
-  Spark job, data modeling, schema management, orchestration, testing, incident.
+  Spark job, data modeling, schema management, orchestration, testing, incident,
+  OpenLineage, SLO, lineage, observability, governance, PII, masking, GDPR,
+  cost optimization, FinOps, partition pruning, vector database, embeddings, RAG,
+  feature store, training-serving skew.
 metadata:
   tags: data-engineering, airflow, pipeline, streaming, dbt, data-quality, warehouse, sql, spark, data-modeling, schema, orchestration, testing
   version: "5.0.0"
@@ -54,6 +58,10 @@ Select a mode based on the user's request. If the request spans multiple modes, 
 | PySpark/Delta/skew/shuffle | **SPARK** | **DATA_MODELING** |
 | Star schema, Data Vault, SCD, medallion | **DATA_MODELING** | **WAREHOUSE** |
 | DQ rules, monitors, anomaly handling | **DATA_QUALITY** | **DBT**, **SQL** |
+| OpenLineage, catalog, SLO/SLI, burn-rate alerts | **DESIGN**, **AIRFLOW**, **DBT** | **DIAGNOSE** — see playbook 13 |
+| PII, masking, RBAC/RLS, GDPR erasure, residency | **PR_REVIEW**, **DESIGN** | **DATA_QUALITY** — see playbook 14 |
+| Warehouse spend, partition pruning, FinOps attribution | **SQL**, **WAREHOUSE**, **SPARK** | **PR_REVIEW** — see playbook 15 |
+| Feature stores, embeddings, vector DB, RAG ingestion | **DESIGN**, **STREAMING** | **DATA_QUALITY** — see playbook 16 |
 
 ## Inputs to Collect
 

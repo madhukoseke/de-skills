@@ -50,9 +50,20 @@ def main() -> int:
     include_paths = [
         SKILL_DIR / "agents",
         SKILL_DIR / "dist",
+        SKILL_DIR / "playbooks",
+        SKILL_DIR / "templates",
+        SKILL_DIR / "schemas",
         SKILL_DIR / "skill.json",
         SKILL_DIR / "SKILL.md",
     ]
+
+    missing = [path for path in include_paths if not path.exists()]
+    if missing:
+        rel_missing = ", ".join(str(path.relative_to(ROOT)) for path in missing)
+        raise SystemExit(
+            f"missing release input(s): {rel_missing}. "
+            "Run `python3 scripts/build_adapters.py` before packaging."
+        )
 
     with tarfile.open(archive_path, "w:gz") as tar:
         for path in include_paths:

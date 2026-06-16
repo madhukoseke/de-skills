@@ -25,7 +25,7 @@ python3 "$ROOT_DIR/tests/benchmark/compare_skill_vs_no_skill.py" \
   --with-skill-dir "$ROOT_DIR/tests/captured_responses" \
   --no-skill-dir "$ROOT_DIR/tests/benchmark/no_skill" \
   --output-file "$RESULTS_DIR/comparison.json" \
-  --contract-file "$ROOT_DIR/tests/benchmark/contract/v2.json"
+  --contract-file "$ROOT_DIR/tests/benchmark/contract/v3.json"
 
 python3 "$ROOT_DIR/tests/benchmark/generate_skill_vs_no_skill_report.py"
 python3 "$ROOT_DIR/tests/benchmark/enforce_quality_gate.py" "$RESULTS_DIR/comparison.json"

@@ -24,6 +24,7 @@ jobs:
       - name: Run live benchmark (first prompt only)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
         run: |
           if [ -z "$OPENAI_API_KEY" ]; then
             echo "OPENAI_API_KEY is not set in repository secrets; skipping live smoke."
@@ -50,9 +51,14 @@ jobs:
       - name: Run live benchmark (first prompt only)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "ANTHROPIC_API_KEY is not set in repository secrets; skipping live smoke."
+            exit 0
+          fi
+          if [ -z "$ANTHROPIC_MODEL" ]; then
+            echo "ANTHROPIC_MODEL is not set in repository variables; skipping live smoke."
             exit 0
           fi
           mkdir -p tests/benchmark/live_runs
@@ -76,9 +82,14 @@ jobs:
       - name: Run live benchmark (first prompt only)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "GEMINI_API_KEY is not set in repository secrets; skipping live smoke."
+            exit 0
+          fi
+          if [ -z "$GEMINI_MODEL" ]; then
+            echo "GEMINI_MODEL is not set in repository variables; skipping live smoke."
             exit 0
           fi
           mkdir -p tests/benchmark/live_runs

@@ -271,6 +271,44 @@ CASE_CHECKS: tuple[CaseCheck, ...] = (
             ("rollback", "mitigation"),
         ),
     ),
+    CaseCheck(
+        "TC-E2E-031",
+        "Lineage and observability instrumentation",
+        ("openlineage", "slo", "lineage", "alert"),
+        any_of_terms=(
+            ("burn-rate", "burn rate", "sli"),
+            ("datahub", "openmetadata", "marquez"),
+            ("slo definition", "templates/slo_definition"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-032",
+        "Governance and PII PR review",
+        ("pii", "masking", "classification"),
+        any_of_terms=(
+            ("pass", "fail"),
+            ("rbac", "rls", "gdpr", "audit"),
+            ("risk assessment", "request_changes"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-033",
+        "Cost optimization audit",
+        ("partition", "pruning", "cost"),
+        any_of_terms=(
+            ("bytes scanned", "attribution", "reservation"),
+            ("compaction", "storage tier", "finops"),
+        ),
+    ),
+    CaseCheck(
+        "TC-E2E-034",
+        "ML and vector pipeline design",
+        ("embedding", "vector", "contract"),
+        any_of_terms=(
+            ("rag", "feature store"),
+            ("drift", "training-serving", "idempot"),
+        ),
+    ),
 )
 
 

@@ -20,7 +20,7 @@ def resolve_api_key(explicit: str | None) -> str | None:
 
 
 def resolve_model(explicit: str | None) -> str:
-    return explicit or os.getenv(MODEL_ENV, DEFAULT_MODEL)
+    return explicit or os.getenv(MODEL_ENV) or DEFAULT_MODEL
 
 
 def extract_output_text(data: dict) -> str:

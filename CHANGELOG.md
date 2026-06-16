@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Playbook routing in SKILL.md** for playbooks 13–16 (lineage/observability, governance/PII, cost optimization, ML/vector/RAG) via mode-selection table and expanded trigger keywords.
+- **E2E cases TC-E2E-031..034** covering the four v5.0 playbooks with captured and no-skill fixtures.
+- **Benchmark contract v3** (`tests/benchmark/contract/v3.json`) — 34 cases aligned with skill contract 5.0.0; live prompt suite `prompts_v3.json`.
+- Richer captured responses for TC-E2E-004, 009, 010, and 011 (safety, cost, and testability signals).
+
+### Fixed
+
+- Release packages now include the full canonical support surface (`playbooks/`, `templates/`, and `schemas/`) alongside generated provider artifacts, with a regression validator for archive contents.
+- Scheduled Anthropic and Gemini live smoke jobs now skip cleanly unless both an API key and model variable are configured; provider model resolution now treats empty model environment variables as unset.
+- Corrected the data quality report template's playbook cross-reference to `playbooks/05_data_quality.md`.
+
 ## [5.0.0] - 2026-04-29
 
 ### BREAKING
