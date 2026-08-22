@@ -28,7 +28,7 @@ Correlate these planes with dataset, job, run, contract, and code version:
 - Lineage: inputs, outputs, transformations, schema facets, run events
 - Audit: access and administrative actions
 
-Use [OpenLineage](https://openlineage.io/docs/spec/) for interoperable job/run/dataset lineage when supported and [OpenTelemetry](https://opentelemetry.io/docs/specs/) for telemetry transport. A catalog graph inferred only from SQL text is not proof of what ran.
+Use [OpenLineage spec](https://github.com/OpenLineage/OpenLineage/blob/main/spec/OpenLineage.md?plain=1) for interoperable job/run/dataset lineage when supported and [OpenTelemetry](https://opentelemetry.io/docs/specs/) for telemetry transport. A catalog graph inferred only from SQL text is not proof of what ran.
 
 ## Diagnose with evidence
 

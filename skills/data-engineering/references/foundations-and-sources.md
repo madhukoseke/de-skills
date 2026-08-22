@@ -18,11 +18,11 @@ Use this reference when interpreting principles, resolving conflicting guidance,
 
 | Source | Edition/status | Influence on this skill |
 |---|---|---|
-| [Joe Reis and Matt Housley, *Fundamentals of Data Engineering*](https://www.oreilly.com/library/view/fundamentals-of-data/9781098108298/) | O’Reilly, 2022 | End-to-end lifecycle; generation, ingestion, storage, transformation, serving, and cross-cutting concerns |
-| [Martin Kleppmann and Chris Riccomini, *Designing Data-Intensive Applications*](https://www.oreilly.com/library/view/designing-data-intensive-applications/9781098119058/) | 2nd ed., O’Reilly, 2026 | Reliability, scalability, maintainability, data models, replication, partitioning, transactions, distributed systems, and streaming trade-offs |
+| Joe Reis and Matt Housley, *Fundamentals of Data Engineering* | O’Reilly, 2022 | End-to-end lifecycle; generation, ingestion, storage, transformation, serving, and cross-cutting concerns |
+| Martin Kleppmann and Chris Riccomini, *Designing Data-Intensive Applications* | 2nd ed., O’Reilly, 2026 | Reliability, scalability, maintainability, data models, replication, partitioning, transactions, distributed systems, and streaming trade-offs |
 | [Ralph Kimball and Margy Ross, *The Data Warehouse Toolkit*](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/books/data-warehouse-dw-toolkit/) | 3rd ed. | Dimensional modeling, grain, facts, dimensions, slowly changing dimensions, and business process focus |
-| [Tyler Akidau, Slava Chernyak, and Reuven Lax, *Streaming Systems*](https://www.oreilly.com/library/view/streaming-systems/9781491983867/) | O’Reilly, 2018 | Event time, watermarks, triggers, state, and correctness in stream processing |
-| [Alex Petrov, *Database Internals*](https://www.oreilly.com/library/view/database-internals/9781492040330/) | O’Reilly, 2019 | Storage engines, indexes, distributed database mechanisms, and failure trade-offs |
+| Tyler Akidau, Slava Chernyak, and Reuven Lax, *Streaming Systems* | O’Reilly, 2018 | Event time, watermarks, triggers, state, and correctness in stream processing |
+| Alex Petrov, *Database Internals* | O’Reilly, 2019 | Storage engines, indexes, distributed database mechanisms, and failure trade-offs |
 | [Google, *Site Reliability Engineering* and *The Site Reliability Workbook*](https://sre.google/workbook/part-I-foundations/) | Online books | SLOs, error budgets, monitoring, incident response, canarying, capacity, and pipeline operations |
 | [DAMA International, DAMA-DMBOK](https://dama.org/about-dama/what-is-data-management/) | 2nd ed. revised; 3.0 evolving | Governance, architecture, modeling, storage/operations, security, integration, metadata, master/reference data, warehousing, and quality |
 
@@ -34,7 +34,7 @@ These sources can disagree or address different scopes. Resolve conflicts from c
 |---|---|---|
 | [Agent Skills](https://agentskills.io/specification) | Current at review date | Skill package, metadata, references, assets, scripts, progressive disclosure |
 | [Open Data Contract Standard](https://github.com/bitol-io/open-data-contract-standard) | 3.1.0 | Interoperable data contract structure |
-| [OpenLineage](https://openlineage.io/docs/spec/) | Current at review date | Job, run, and dataset lineage events/facets |
+| [OpenLineage spec](https://github.com/OpenLineage/OpenLineage/blob/main/spec/OpenLineage.md?plain=1) | Current at review date | Job, run, and dataset lineage events/facets |
 | [OpenTelemetry](https://opentelemetry.io/docs/specs/) | Current at review date | Metrics, logs, traces, context, and telemetry transport |
 | [Apache Iceberg specification](https://iceberg.apache.org/spec/) | Current at review date | Open analytical table metadata and transaction semantics |
 | [Apache Avro specification](https://avro.apache.org/docs/current/specification/) | Current at review date | Schema-based serialization and evolution concepts |
