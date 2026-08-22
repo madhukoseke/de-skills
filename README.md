@@ -2,6 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-6.0.0-blue)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
+[![skills.sh](https://skills.sh/b/madhukoseke/de-skills)](https://skills.sh/madhukoseke/de-skills)
 
 `data-engineering` is one vendor-neutral agent skill for designing, building,
 reviewing, operating, and modernizing production data systems. SQL, Python, dbt,
@@ -37,7 +38,7 @@ Install the `skills/data-engineering` directory with any client implementing the
 Skills CLI:
 
 ```bash
-npx skills add <owner>/de-skills --skill data-engineering
+npx skills add madhukoseke/de-skills --skill data-engineering
 ```
 
 Then ask the agent directly, for example:
