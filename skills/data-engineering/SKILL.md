@@ -1,6 +1,6 @@
 ---
 name: data-engineering
-description: Design, build, review, operate, and modernize production data systems. Use for data pipelines, ingestion, CDC, APIs and files, SQL, Python, dbt, Spark, streaming, Kafka or Flink, orchestration, Airflow or Dagster, warehouses, lakes and lakehouses, data modeling, contracts, schema evolution, data quality, testing, lineage, observability, incidents, backfills, migrations, governance, security, FinOps, platform engineering, feature pipelines, vector data, and RAG ingestion. Apply when inspecting a data repository, implementing or reviewing changes, diagnosing failures, or making architecture trade-offs.
+description: Flagship v6 skill for designing, building, reviewing, operating, and modernizing production data systems. Use for data pipelines, ingestion, CDC, APIs and files, SQL, Python, dbt, Spark, streaming, Kafka or Flink, orchestration, Airflow or Dagster, warehouses, lakes and lakehouses, data modeling, contracts, schema evolution, data quality, testing, lineage, observability, incidents, backfills, migrations, governance, security, FinOps, platform engineering, feature pipelines, vector data, and RAG ingestion. Apply when inspecting a data repository, implementing or reviewing changes, diagnosing failures, or making architecture trade-offs.
 ---
 
 # Data Engineering
