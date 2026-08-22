@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate that canonical skill content stays vendor-neutral."""
+"""Keep stable skill behavior neutral while allowing dated technology references."""
 
 from __future__ import annotations
 
@@ -7,43 +7,25 @@ import re
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_ROOT = ROOT / "skills" / "data-engineering-best-practices"
-CANONICAL_GLOBS = (
-    "SKILL.md",
-    "playbooks/*.md",
-    "templates/*.md",
-    "templates/*.yaml",
-    "templates/*.yml",
-)
-FORBIDDEN_PATTERN = re.compile(r"\b(claude|anthropic|openai|codex|chatgpt)\b", re.IGNORECASE)
-
-
-def canonical_files() -> list[Path]:
-    files: list[Path] = []
-    for pattern in CANONICAL_GLOBS:
-        files.extend(sorted(SKILL_ROOT.glob(pattern)))
-    return files
+SKILL_DIR = ROOT / "skills" / "data-engineering"
+AI_PROVIDER = re.compile(r"\b(openai|anthropic|claude|chatgpt|codex|gemini api)\b", re.I)
+UNDATED_PRODUCT = re.compile(r"\b(airflow|dagster|dbt|spark|flink|kafka|snowflake|bigquery|databricks|redshift)\b", re.I)
 
 
 def main() -> int:
-    violations: list[str] = []
-
-    for path in canonical_files():
-        lines = path.read_text(encoding="utf-8").splitlines()
-        for lineno, line in enumerate(lines, start=1):
-            if FORBIDDEN_PATTERN.search(line):
-                rel = path.relative_to(ROOT)
-                violations.append(f"{rel}:{lineno}: {line.strip()}")
-
-    if violations:
-        print("Canonical skill content must remain vendor-neutral.", file=sys.stderr)
-        for violation in violations:
-            print(violation, file=sys.stderr)
+    errors: list[str] = []
+    files = [SKILL_DIR / "SKILL.md", *sorted((SKILL_DIR / "references").glob("*.md"))]
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        if AI_PROVIDER.search(text):
+            errors.append(f"AI-provider behavior leaked into canonical content: {path.relative_to(ROOT)}")
+        if path.name != "SKILL.md" and UNDATED_PRODUCT.search(text) and not re.search(r"Last verified:\s*\d{4}-\d{2}-\d{2}", text):
+            errors.append(f"technology-specific reference lacks Last verified date: {path.relative_to(ROOT)}")
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
         return 1
-
-    print("Vendor-neutrality validation passed.")
+    print("Vendor neutrality and dated-product guidance passed.")
     return 0
 
 

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "should_trigger": [
+    "Design a replayable orders pipeline.", "Review this dbt model.", "Diagnose consumer lag.", "Plan an Airflow migration.",
+    "Optimize this Spark join.", "Create a data contract.", "Model customer history.", "Plan a safe data backfill.",
+    "Investigate warehouse cost growth.", "Design CDC from PostgreSQL.", "Review this SQL transformation.", "Build a Python ingestion job.",
+    "Define a freshness SLO.", "Create a pipeline runbook.", "Plan lakehouse disaster recovery.", "Handle late streaming events.",
+    "Choose an open table format.", "Review a schema evolution proposal.", "Design data lineage.", "Implement data quality tests.",
+    "Plan a warehouse cutover.", "Decommission a legacy dataset.", "Design reverse ETL controls.", "Review a Kafka consumer.",
+    "Reconcile source and warehouse totals.", "Create a dimensional model.", "Compare Data Vault and star schemas.", "Secure a PII pipeline.",
+    "Implement retention and deletion.", "Design self-service data platform quotas.", "Estimate pipeline throughput.", "Review object-store partitioning.",
+    "Build point-in-time training data.", "Design embedding ingestion.", "Review a RAG deletion workflow.", "Migrate a feature store.",
+    "Recover a deleted warehouse partition.", "Design hybrid data architecture.", "Add rollback to data CI/CD.", "Review orchestration retry semantics."
+  ],
+  "should_not_trigger": [
+    "Center this div in CSS.", "Write a React login form.", "Explain photosynthesis.", "Plan a Paris vacation.",
+    "Fix my guitar intonation.", "Draft a sales email.", "Review a mobile app color palette.", "Implement a binary search.",
+    "Summarize this employment contract.", "Create a household budget.", "Diagnose a car battery.", "Translate this paragraph into French.",
+    "Write a fantasy short story.", "Explain HTTP cookies to a beginner.", "Choose a camera lens.", "Design a company logo.",
+    "Make a presentation about bees.", "Calculate compound interest.", "Review this Kubernetes ingress only.", "Fix an iOS animation.",
+    "Create a chess opening plan.", "Suggest vegetarian dinner recipes.", "Analyze a poem.", "Write unit tests for a calculator.",
+    "Configure browser CORS headers.", "Explain DNS resolution.", "Plan a marathon training block.", "Refactor a UI date picker.",
+    "Review an OAuth login callback.", "Create a PDF invoice.", "Debug a video codec.", "Build a weather widget.",
+    "Compare laptop displays.", "Draft a privacy policy.", "Implement multiplayer game physics.", "Set up an email newsletter.",
+    "Explain quantum entanglement.", "Tune a web server TLS cipher list.", "Create a social media calendar.", "Review a REST controller with no data pipeline."
+  ]
+}

@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""Minimal Anthropic Messages API example using the generated contract bundle.
+"""Minimal Anthropic Messages API example using a named context bundle.
 
-Wires up **prompt caching** on the system block: the canonical contract is
-~9KB of static text, and re-sending it on every request is wasteful. With
-`cache_control: {"type": "ephemeral"}` the second-and-later requests within
-the cache TTL pay roughly 10% of the input-token cost for the cached prefix.
-
-Set `ANTHROPIC_PROMPT_CACHING=0` to disable for a baseline comparison.
+Set ``ANTHROPIC_PROMPT_CACHING=0`` to disable explicit caching. Reverify current
+model support, TTL, and pricing through ``integrations/providers.yaml``.
 """
 
 from __future__ import annotations
@@ -20,9 +16,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SYSTEM_PROMPT_FILE = (
-    ROOT / "skills" / "data-engineering-best-practices" / "dist" / "anthropic" / "system_prompt.txt"
-)
+SYSTEM_PROMPT_FILE = ROOT / "dist" / "bundles" / "core.txt"
 
 
 def main() -> int:

@@ -1,0 +1,7 @@
+apiVersion: v3.1.0
+kind: DataContract
+id: replace-me
+version: 1.0.0
+status: active
+name: Orders
+schema: []

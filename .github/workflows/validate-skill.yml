@@ -12,146 +12,32 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: skills/data-engineering-best-practices
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Validate SKILL.md frontmatter
-        run: |
-          SKILL_FILE="SKILL.md"
-          if ! grep -q "^name:" "$SKILL_FILE"; then
-            echo "::error::SKILL.md missing required 'name' in frontmatter"
-            exit 1
-          fi
-          if ! grep -q "^description:" "$SKILL_FILE"; then
-            echo "::error::SKILL.md missing required 'description' in frontmatter"
-            exit 1
-          fi
-          echo "Frontmatter validation passed"
-
-      - name: Validate playbook files exist
-        run: |
-          playbooks=$(grep -oE '\(playbooks/[^)]+\)' SKILL.md | tr -d '()' | sort -u)
-          if [ -z "$playbooks" ]; then
-            echo "::error::No playbook paths found in SKILL.md"
-            exit 1
-          fi
-          while IFS= read -r f; do
-            if [ ! -f "$f" ]; then
-              echo "::error::Missing playbook referenced by SKILL.md: $f"
-              exit 1
-            fi
-          done <<< "$playbooks"
-          echo "Playbook files validation passed"
-
-      - name: Validate template files exist
-        run: |
-          templates=$(grep -oE '\(templates/[^)]+\)' SKILL.md | tr -d '()' | sort -u)
-          if [ -z "$templates" ]; then
-            echo "::error::No template paths found in SKILL.md"
-            exit 1
-          fi
-          while IFS= read -r f; do
-            if [ ! -f "$f" ]; then
-              echo "::error::Missing template referenced by SKILL.md: $f"
-              exit 1
-            fi
-          done <<< "$templates"
-          echo "Template files validation passed"
-
-      - name: Validate SKILL structure (modes, templates, principles)
-        run: |
-          python3 ../../tests/validate_skill_structure.py
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: tests/requirements.txt
-
-      - name: Install validator dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r ../../tests/requirements.txt
-
-      - name: Validate canonical skill is vendor-neutral
-        run: |
-          python3 ../../tests/validate_vendor_neutrality.py
-
-      - name: Validate adapter manifests
-        run: |
-          python3 ../../scripts/build_adapters.py
-          python3 ../../scripts/build_adapters.py --check
-          python3 ../../tests/validate_adapters.py
-          python3 ../../tests/validate_provider_fixtures.py
-          python3 ../../tests/validate_json_responses.py
-          python3 ../../tests/validate_release_package.py
-
-      - name: Assert no committed __pycache__
-        run: |
-          if git ls-files | grep -q __pycache__; then
-            echo "::error::__pycache__ directories are tracked in git; remove them with 'git rm -r --cached **/__pycache__'"
-            git ls-files | grep __pycache__
-            exit 1
-          fi
-
-      - name: Validate Python script syntax
-        run: |
-          python3 -m py_compile ../../examples/*.py ../../examples/airflow/*.py ../../tests/benchmark/live/providers/*.py ../../tests/benchmark/live/run_live_benchmark.py ../../scripts/*.py ../../tests/*.py ../../tests/benchmark/*.py ../../tests/validate_skill_structure.py
-
-      - name: Validate E2E harness
-        run: |
-          ../../tests/run_e2e_harness.sh
-
-      - name: Benchmark quality gate (skill vs baseline)
-        run: |
-          ../../tests/benchmark/run_skill_vs_no_skill.sh
+      - run: python3 -m pip install -r tests/requirements.txt
+      - run: python3 scripts/build_bundles.py
+      - run: tests/run_e2e_harness.sh
+      - run: python3 tests/validate_release_package.py
+      - name: Python syntax
+        run: python3 -m py_compile scripts/*.py skills/data-engineering/scripts/*.py tests/*.py tests/benchmark/*.py tests/benchmark/live/*.py tests/benchmark/live/providers/*.py examples/*.py examples/airflow/*.py
+      - name: No tracked caches
+        run: '! git ls-files | grep -q __pycache__'
 
   docs:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node (markdown tooling)
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
-
-      - name: Lint markdown (markdownlint-cli2)
-        run: >-
-          npx --yes markdownlint-cli2@0.17.2
-          "README.md" "CHANGELOG.md" "CONTRIBUTING.md" "AGENTS.md"
-          "OPERATOR_GUIDE.md" "SECURITY.md" "ROADMAP.md" "CODE_OF_CONDUCT.md"
-          "skills/data-engineering-best-practices/SKILL.md"
-          "skills/data-engineering-best-practices/playbooks/*.md"
-          "skills/data-engineering-best-practices/templates/*.md"
-          "examples/airflow/*.md"
-          ".github/**/*.md"
-
-      - name: Check links (lychee)
-        uses: lycheeverse/lychee-action@v2
+      - run: npx --yes markdownlint-cli2@0.17.2 "*.md" "docs/**/*.md" "integrations/*.md" "skills/data-engineering/**/*.md" ".github/**/*.md"
+      - uses: lycheeverse/lychee-action@v2
         with:
-          args: >-
-            --verbose --no-progress
-            --exclude-path node_modules
-            --exclude-path .git
-            --exclude-path .cursor
-            --exclude-path tests/captured_responses
-            --exclude-path tests/benchmark/no_skill
-            --max-concurrency 8
-            --timeout 120
-            --max-retries 5
-            --accept 100..=103,200..=399,429
-            .
+          args: --verbose --no-progress --exclude-path .git --exclude-path tests/benchmark/legacy_v5 --max-concurrency 8 --timeout 120 --max-retries 5 --accept 100..=103,200..=399,429 .
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

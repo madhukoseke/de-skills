@@ -17,9 +17,8 @@ Pattern shown:
 - Source/target row-count parity check before declaring the partition loaded
 
 Cross-references:
-- ../../skills/data-engineering-best-practices/playbooks/02_airflow_reliability.md
-- ../../skills/data-engineering-best-practices/playbooks/04_dbt_patterns.md  (dataset-aware scheduling)
-- ../../skills/data-engineering-best-practices/playbooks/05_data_quality.md  (row-count + parameterized SQL pattern)
+- ../../skills/data-engineering/references/orchestration-and-delivery.md
+- ../../skills/data-engineering/references/contracts-quality-and-testing.md
 """
 
 from __future__ import annotations

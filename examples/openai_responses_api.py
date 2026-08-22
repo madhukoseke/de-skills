@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal OpenAI Responses API example using the generated contract bundle."""
+"""Minimal OpenAI Responses API example using a named context bundle."""
 
 from __future__ import annotations
 
@@ -12,9 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SYSTEM_PROMPT_FILE = (
-    ROOT / "skills" / "data-engineering-best-practices" / "dist" / "openai" / "system_prompt.txt"
-)
+SYSTEM_PROMPT_FILE = ROOT / "dist" / "bundles" / "core.txt"
 
 
 def main() -> int:

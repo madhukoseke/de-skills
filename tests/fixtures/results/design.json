@@ -1,0 +1,10 @@
+{
+  "workflow": "DESIGN",
+  "status": "complete",
+  "summary": "A replayable hourly batch design meets the stated SLO.",
+  "decisions": [{"decision": "Use incremental extracts with immutable landing.", "rationale": "It satisfies latency with simpler recovery than streaming."}],
+  "evidence": [{"type": "estimate", "description": "Peak input is 2.1 TB per run with 30% headroom."}],
+  "risks": [{"severity": "medium", "description": "Source snapshots are not transactionally consistent.", "mitigation": "Record source watermarks and reconcile control totals."}],
+  "artifacts": [],
+  "nextActions": ["Confirm source watermark semantics with the owner."]
+}

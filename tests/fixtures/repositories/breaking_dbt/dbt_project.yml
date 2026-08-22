@@ -1,0 +1,4 @@
+name: breaking_dbt
+version: 1.0.0
+profile: fixture
+model-paths: [models]

@@ -1,0 +1,97 @@
+# Open Data Contract Standard (ODCS) v3.1.0 profile.
+# Replace every angle-bracket placeholder before validation.
+apiVersion: v3.1.0
+kind: DataContract
+id: <stable-contract-id>
+name: <dataset-name>
+version: 1.0.0
+status: draft
+domain: <business-domain>
+description:
+  purpose: <consumer-visible-purpose>
+  limitations: <known-limitations-and-prohibited-uses>
+  usage: <supported-consumer-uses>
+tags:
+  - <classification-or-domain-tag>
+authoritativeDefinitions:
+  - type: canonicalUrl
+    url: <canonical-contract-url>
+    description: Canonical location for the latest contract version.
+
+schema:
+  - name: <dataset-or-event-name>
+    physicalType: table
+    logicalType: object
+    description: <grain-in-one-sentence>
+    dataGranularityDescription: <one-row-or-event-represents>
+    properties:
+      - name: <business-key>
+        logicalType: string
+        physicalType: <platform-type>
+        required: true
+        primaryKey: true
+        unique: true
+        description: <stable-business-key-definition>
+        classification: internal
+        quality:
+          - name: business-key-completeness
+            metric: nullValues
+            mustBe: 0
+            unit: rows
+            dimension: completeness
+            severity: error
+            businessImpact: <consumer-impact>
+      - name: event_time
+        logicalType: timestamp
+        physicalType: <platform-type>
+        required: true
+        description: Time the business event occurred, in UTC.
+        logicalTypeOptions:
+          format: yyyy-MM-ddTHH:mm:ssZ
+          timezone: true
+          defaultTimezone: UTC
+
+support:
+  - channel: <support-channel-or-address>
+    tool: <email-slack-teams-or-portal>
+    scope: issues
+    description: Primary support route for producers and consumers.
+
+team:
+  - username: <owner-team-or-handle>
+    role: owner
+    description: Accountable for contract, SLO, changes, and support.
+
+roles:
+  - role: consumer
+    description: May use data only for the purposes declared above.
+    access: read
+
+servicelevels:
+  - property: freshness
+    value: <target-duration-or-deadline>
+    unit: <minutes-hours-or-timestamp>
+    element: <publication-boundary>
+  - property: availability
+    value: <target-percent>
+    unit: percent
+    element: <publication-boundary>
+  - property: retention
+    value: <retention-days>
+    unit: days
+    element: <dataset-name>
+
+servers:
+  - server: production
+    type: <warehouse-object-storage-kafka-api-or-other>
+    environment: production
+    format: <table-parquet-avro-json-or-other>
+    location: <non-secret-logical-location>
+
+customProperties:
+  - property: changePolicy
+    value: <compatibility-deprecation-and-notice-policy>
+  - property: securityClassification
+    value: <public-internal-confidential-or-restricted>
+  - property: deletionPolicy
+    value: <propagation-and-verification-policy>

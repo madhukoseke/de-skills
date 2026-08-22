@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/madhukoseke/de-skills/skills/data-engineering/assets/data-engineering-result.schema.json",
+  "title": "Data Engineering Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["workflow", "status", "summary", "decisions", "evidence", "risks", "artifacts", "nextActions"],
+  "properties": {
+    "workflow": {"type": "string", "enum": ["GUIDE", "DESIGN", "BUILD", "REVIEW", "OPERATE", "MODERNIZE"]},
+    "status": {"type": "string", "enum": ["complete", "needs_input", "blocked", "unsafe"]},
+    "summary": {"type": "string", "minLength": 1},
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decision", "rationale"],
+        "properties": {
+          "decision": {"type": "string"},
+          "rationale": {"type": "string"},
+          "alternatives": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "description"],
+        "properties": {
+          "type": {"type": "string", "enum": ["observation", "test", "command", "estimate", "source"]},
+          "description": {"type": "string"},
+          "path": {"type": "string"},
+          "result": {"type": "string"}
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "description"],
+        "properties": {
+          "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+          "description": {"type": "string"},
+          "mitigation": {"type": "string"}
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "path"],
+        "properties": {"type": {"type": "string"}, "path": {"type": "string"}}
+      }
+    },
+    "nextActions": {"type": "array", "items": {"type": "string"}}
+  }
+}

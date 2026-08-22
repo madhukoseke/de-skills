@@ -13,17 +13,17 @@ config:
   MD034: false
   # Ordered list prefix style varies across contributors.
   MD029: false
-  # SKILL.md and templates use compact "### Mode" + bullet lists (spec style).
+  # SKILL.md and assets use compact headings and lists.
   MD022: false
   MD032: false
   # Placeholder and pseudo-code fences omit a language by design.
   MD040: false
-  # Playbooks use repeated H1-style titles; templates use multiple `#` sections.
+  # Assets may use repeated H1-style titles.
   MD025: false
   MD031: false
   MD036: false
   MD058: false
-  # Playbooks use `* * *` separators and wide tables; headings may end with `?` / `.`.
+  # References use separators and wide tables; headings may end with punctuation.
   MD037: false
   MD056: false
   MD026: false
@@ -33,5 +33,5 @@ ignores:
   - ".git/**"
   - ".cursor/**"
   # Fixture-style markdown (benchmark baselines); not authored for strict lint.
-  - "tests/captured_responses/**"
-  - "tests/benchmark/no_skill/**"
+  - "tests/benchmark/legacy_v5/captured_responses/**"
+  - "tests/benchmark/legacy_v5/no_skill/**"

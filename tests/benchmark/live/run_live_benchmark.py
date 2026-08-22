@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -14,8 +15,9 @@ from providers import get_provider
 
 
 ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_PROMPTS = ROOT / "tests" / "benchmark" / "live" / "prompts_v3.json"
-DEFAULT_CONTRACT_FILE = ROOT / "skills" / "data-engineering-best-practices" / "SKILL.md"
+DEFAULT_PROMPTS = ROOT / "tests" / "benchmark" / "contract" / "v4.json"
+DEFAULT_CONTRACT_FILE = ROOT / "skills" / "data-engineering" / "SKILL.md"
+DEFAULT_V5_MANIFEST = ROOT / "tests" / "benchmark" / "legacy_v5" / "baseline.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-key")
     parser.add_argument("--prompts-file", default=str(DEFAULT_PROMPTS))
     parser.add_argument("--contract-file", default=str(DEFAULT_CONTRACT_FILE))
+    parser.add_argument("--v5-baseline-manifest", default=str(DEFAULT_V5_MANIFEST))
     parser.add_argument("--skill-file", dest="legacy_skill_file", help=argparse.SUPPRESS)
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--max-output-tokens", type=int, default=1400)
@@ -51,6 +54,7 @@ def main() -> int:
     prompts_file = Path(args.prompts_file)
     contract_file = Path(args.legacy_skill_file or args.contract_file)
     out_dir = Path(args.out_dir)
+    v5_manifest_file = Path(args.v5_baseline_manifest)
 
     try:
         provider = get_provider(args.provider)
@@ -66,6 +70,9 @@ def main() -> int:
         return 2
     if not contract_file.exists():
         print(f"error: contract file missing: {contract_file}", file=sys.stderr)
+        return 2
+    if not v5_manifest_file.exists():
+        print(f"error: v5 baseline manifest missing: {v5_manifest_file}", file=sys.stderr)
         return 2
     if not model:
         print(
@@ -83,7 +90,7 @@ def main() -> int:
         return 2
 
     prompts = json.loads(prompts_file.read_text(encoding="utf-8"))
-    cases = prompts.get("cases", [])
+    cases = prompts.get("scenarios", prompts.get("cases", []))
     if not cases:
         print(f"error: no cases in prompts file: {prompts_file}", file=sys.stderr)
         return 2
@@ -94,6 +101,18 @@ def main() -> int:
         cases = cases[: args.max_cases]
 
     contract_text = contract_file.read_text(encoding="utf-8")
+    v5_manifest = json.loads(v5_manifest_file.read_text(encoding="utf-8"))
+    try:
+        v5_contract_text = subprocess.run(
+            ["git", "show", f"{v5_manifest['git_revision']}:{v5_manifest['skill_path']}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except subprocess.CalledProcessError:
+        print("error: v5 baseline revision is unavailable; fetch full git history", file=sys.stderr)
+        return 2
     with_skill_system = (
         "You are running with an active benchmark contract. "
         "Follow the following contract instructions exactly.\n\n"
@@ -103,20 +122,24 @@ def main() -> int:
         "You are a helpful data engineering assistant. "
         "Answer directly and do not assume an external skill contract."
     )
+    v5_system = "Follow this archived v5 data-engineering contract exactly.\n\n" + v5_contract_text
 
     with_dir = out_dir / "with_skill"
     no_dir = out_dir / "no_skill"
+    v5_dir = out_dir / "v5"
     with_dir.mkdir(parents=True, exist_ok=True)
     no_dir.mkdir(parents=True, exist_ok=True)
+    v5_dir.mkdir(parents=True, exist_ok=True)
 
     for idx, case in enumerate(cases, start=1):
-        case_id = case["case_id"]
+        case_id = case.get("id", case.get("case_id"))
         prompt = case["prompt"]
         print(f"[{idx}/{len(cases)}] {case_id}")
 
         if args.dry_run:
             write_response(with_dir / f"{case_id}.md", f"## Summary\nDRY RUN with skill for {case_id}\n")
             write_response(no_dir / f"{case_id}.md", f"## Summary\nDRY RUN no skill for {case_id}\n")
+            write_response(v5_dir / f"{case_id}.md", f"## Summary\nDRY RUN v5 for {case_id}\n")
             continue
 
         with_resp = provider.call_model(
@@ -135,9 +158,18 @@ def main() -> int:
             max_output_tokens=args.max_output_tokens,
             temperature=args.temperature,
         )
+        v5_resp = provider.call_model(
+            api_key=api_key,
+            model=model,
+            system_prompt=v5_system,
+            user_prompt=prompt,
+            max_output_tokens=args.max_output_tokens,
+            temperature=args.temperature,
+        )
 
         write_response(with_dir / f"{case_id}.md", with_resp)
         write_response(no_dir / f"{case_id}.md", no_resp)
+        write_response(v5_dir / f"{case_id}.md", v5_resp)
 
         if args.delay_sec > 0:
             time.sleep(args.delay_sec)
@@ -148,6 +180,7 @@ def main() -> int:
         "contract_version": prompts.get("contract_version"),
         "prompts_file": str(prompts_file),
         "contract_file": str(contract_file),
+        "v5_baseline": v5_manifest,
         "case_count": len(cases),
         "dry_run": args.dry_run,
     }

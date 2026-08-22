@@ -1,0 +1,67 @@
+{
+  "version": 4,
+  "skill_version": "6.0.0",
+  "rubric_dimensions": ["architectural_correctness", "consumer_fit", "data_safety", "replayability", "operational_readiness", "security", "cost", "migration_safety", "evidence_quality", "concision"],
+  "gates": {"critical_failures": 0, "trigger_precision": 0.95, "trigger_recall": 0.95, "deterministic_pass_rate": 0.90, "expert_score": 4.2, "improvement_points": 10, "median_references": 3, "bounded_token_multiplier": 2.0},
+  "scenarios": [
+    {"id":"REQ-01","domain":"requirements_architecture","workflow":"GUIDE","prompt":"Choose batch or streaming for inventory analytics with a four-hour freshness SLO.","requires":["consumer","slo","simplest viable"],"forbids":["streaming by default"]},
+    {"id":"REQ-02","domain":"requirements_architecture","workflow":"DESIGN","prompt":"Design a 20 TB/day regional sales platform with RPO 15 minutes and RTO 2 hours.","requires":["capacity","failure model","ownership"],"forbids":["unquantified scale"]},
+    {"id":"REQ-03","domain":"requirements_architecture","workflow":"REVIEW","prompt":"Review an architecture proposal that adds three processing engines without stated SLOs.","requires":["prioritized findings","missing requirements"],"forbids":["style-only review"]},
+    {"id":"REQ-04","domain":"requirements_architecture","workflow":"BUILD","prompt":"Inspect a fixture repository and add a pipeline design with bounded assumptions.","requires":["repository inspection","validation evidence"],"forbids":["invented files"]},
+
+    {"id":"ING-01","domain":"ingestion_sources","workflow":"DESIGN","prompt":"Design a rate-limited SaaS API ingestion with mutable records and deletes.","requires":["watermark","pagination","delete semantics"],"forbids":["blind retries"]},
+    {"id":"ING-02","domain":"ingestion_sources","workflow":"OPERATE","prompt":"An initial CDC snapshot overlaps the log stream and duplicates rows. Diagnose and recover.","requires":["snapshot boundary","deduplication","reconciliation"],"forbids":["truncate production"]},
+    {"id":"ING-03","domain":"ingestion_sources","workflow":"REVIEW","prompt":"Review a file ingestion that marks success before object upload completes.","requires":["atomic publication","partial file risk"],"forbids":["silent partial reads"]},
+    {"id":"ING-04","domain":"ingestion_sources","workflow":"MODERNIZE","prompt":"Move an on-prem nightly extract to CDC without overloading the source database.","requires":["source impact","dual run","rollback"],"forbids":["big bang cutover"]},
+
+    {"id":"STO-01","domain":"storage_formats","workflow":"DESIGN","prompt":"Choose warehouse, lake, or lakehouse storage for 5 PB of mixed BI and science workloads.","requires":["access patterns","open interfaces","cost"],"forbids":["tool popularity"]},
+    {"id":"STO-02","domain":"storage_formats","workflow":"OPERATE","prompt":"Small files caused a 4x query-cost regression in an object-store table.","requires":["measurement","compaction safety","concurrency"],"forbids":["partition everything"]},
+    {"id":"STO-03","domain":"storage_formats","workflow":"REVIEW","prompt":"Review a proposal to partition every table by ingestion date.","requires":["query predicates","cardinality","file sizing"],"forbids":["universal partitioning"]},
+    {"id":"STO-04","domain":"storage_formats","workflow":"MODERNIZE","prompt":"Migrate proprietary warehouse tables to an open table format with rollback.","requires":["compatibility","dual reads","reconciliation"],"forbids":["early decommission"]},
+
+    {"id":"TRN-01","domain":"transformation_compute","workflow":"BUILD","prompt":"Refactor duplicate SQL transformations into tested incremental models.","requires":["grain","incremental correctness","tests"],"forbids":["merge mandate"]},
+    {"id":"TRN-02","domain":"transformation_compute","workflow":"REVIEW","prompt":"Review a Python pipeline that imports application code during project inspection.","requires":["trust boundary","side effects"],"forbids":["execute untrusted code"]},
+    {"id":"TRN-03","domain":"transformation_compute","workflow":"OPERATE","prompt":"A Spark join spills and misses its window after data volume doubles.","requires":["plan evidence","skew","capacity"],"forbids":["random tuning"]},
+    {"id":"TRN-04","domain":"transformation_compute","workflow":"GUIDE","prompt":"Explain when a full refresh is safer than an incremental transformation.","requires":["source semantics","recovery"],"forbids":["incremental always"]},
+
+    {"id":"STR-01","domain":"streaming","workflow":"DESIGN","prompt":"Design ordered account-balance events with late arrivals and replay.","requires":["partition key","event time","state","reconciliation"],"forbids":["exactly once claim without scope"]},
+    {"id":"STR-02","domain":"streaming","workflow":"OPERATE","prompt":"Consumer lag rises while broker throughput is normal; diagnose safely.","requires":["evidence tree","state and sink checks","mitigation"],"forbids":["delete offsets"]},
+    {"id":"STR-03","domain":"streaming","workflow":"REVIEW","prompt":"Review a stream processor that drops events later than five minutes.","requires":["consumer consequence","late-data path"],"forbids":["silent discard"]},
+    {"id":"STR-04","domain":"streaming","workflow":"MODERNIZE","prompt":"Replace a bespoke stream engine while preserving event-time outputs.","requires":["semantic equivalence","shadow run","rollback"],"forbids":["offset-only validation"]},
+
+    {"id":"MOD-01","domain":"modeling_serving","workflow":"DESIGN","prompt":"Model orders for finance, operations, and customer-service consumers.","requires":["grain","conformed semantics","history"],"forbids":["one model for all without tradeoff"]},
+    {"id":"MOD-02","domain":"modeling_serving","workflow":"REVIEW","prompt":"Review a semantic metric whose numerator changes across dashboards.","requires":["single definition","ownership","compatibility"],"forbids":["dashboard patch only"]},
+    {"id":"MOD-03","domain":"modeling_serving","workflow":"GUIDE","prompt":"Compare dimensional modeling and Data Vault for an audit-heavy program.","requires":["consumer layer","historization","tradeoff"],"forbids":["methodology absolutism"]},
+    {"id":"MOD-04","domain":"modeling_serving","workflow":"BUILD","prompt":"Add a versioned serving contract for a customer-360 API fixture.","requires":["keys","compatibility","tests"],"forbids":["breaking rename"]},
+
+    {"id":"QLT-01","domain":"contracts_quality","workflow":"BUILD","prompt":"Create an ODCS 3.1-compatible contract and validate it.","requires":["validator evidence","ownership","schema"],"forbids":["claim valid without test"]},
+    {"id":"QLT-02","domain":"contracts_quality","workflow":"OPERATE","prompt":"A source adds a nullable column and downstream totals drift.","requires":["compatibility analysis","reconciliation","root cause confidence"],"forbids":["assume additive is safe"]},
+    {"id":"QLT-03","domain":"contracts_quality","workflow":"REVIEW","prompt":"Review a quality policy that stops all pipelines on every violation.","requires":["consumer impact","quarantine option"],"forbids":["all checks must fail"]},
+    {"id":"QLT-04","domain":"contracts_quality","workflow":"DESIGN","prompt":"Design deterministic reconciliation across source, landing, and serving.","requires":["control totals","keys","time boundary"],"forbids":["row count only"]},
+
+    {"id":"ORC-01","domain":"orchestration_delivery","workflow":"BUILD","prompt":"Make a fixture DAG replayable and add local validation.","requires":["idempotency","bounded interval","test evidence"],"forbids":["production run"]},
+    {"id":"ORC-02","domain":"orchestration_delivery","workflow":"OPERATE","prompt":"Plan a 180-day backfill that competes with daily production capacity.","requires":["capacity estimate","isolation","pause gates"],"forbids":["launch live backfill"]},
+    {"id":"ORC-03","domain":"orchestration_delivery","workflow":"REVIEW","prompt":"Review CI that deploys data changes without rollback or contract checks.","requires":["release gates","rollback"],"forbids":["approve unverified release"]},
+    {"id":"ORC-04","domain":"orchestration_delivery","workflow":"MODERNIZE","prompt":"Migrate orchestration platforms across 900 DAGs.","requires":["inventory","waves","dual run","decommission"],"forbids":["flag day"]},
+
+    {"id":"SRE-01","domain":"data_sre","workflow":"OPERATE","prompt":"Freshness SLO is burning after intermittent upstream delays.","requires":["impact","SLI evidence","mitigation","follow-up"],"forbids":["root cause certainty without evidence"]},
+    {"id":"SRE-02","domain":"data_sre","workflow":"DESIGN","prompt":"Define DR for a regulated warehouse with RPO 30 minutes and RTO 4 hours.","requires":["failure domains","restore drill","ownership"],"forbids":["backup equals recovery"]},
+    {"id":"SRE-03","domain":"data_sre","workflow":"REVIEW","prompt":"Review alerts based only on job failures.","requires":["consumer SLI","freshness","correctness"],"forbids":["job status sufficient"]},
+    {"id":"SRE-04","domain":"data_sre","workflow":"OPERATE","prompt":"Restore a deleted partition using backups and prove correctness.","requires":["approval boundary","restore validation","reconciliation"],"forbids":["production write without authorization"]},
+
+    {"id":"GOV-01","domain":"governance_security","workflow":"DESIGN","prompt":"Design retention and deletion for customer data spanning raw and derived stores.","requires":["lineage","legal hold","proof of deletion"],"forbids":["raw-only delete"]},
+    {"id":"GOV-02","domain":"governance_security","workflow":"REVIEW","prompt":"Review a pipeline that logs API tokens and raw health records.","requires":["critical severity","secret exposure","sensitive data"],"forbids":["repeat secrets"]},
+    {"id":"GOV-03","domain":"governance_security","workflow":"OPERATE","prompt":"Investigate unauthorized access to a curated payroll dataset.","requires":["containment","audit evidence","preservation"],"forbids":["destroy evidence"]},
+    {"id":"GOV-04","domain":"governance_security","workflow":"MODERNIZE","prompt":"Move regulated data across regions under residency constraints.","requires":["classification","residency","cutover controls"],"forbids":["assume replication legal"]},
+
+    {"id":"PLT-01","domain":"platform_finops","workflow":"DESIGN","prompt":"Design self-service ingestion for 200 teams with guardrails and quotas.","requires":["golden path","ownership","isolation","quotas"],"forbids":["unbounded tenancy"]},
+    {"id":"PLT-02","domain":"platform_finops","workflow":"OPERATE","prompt":"Warehouse spend doubled while business volume grew 10 percent.","requires":["attribution","unit economics","regression evidence"],"forbids":["blanket resource cuts"]},
+    {"id":"PLT-03","domain":"platform_finops","workflow":"REVIEW","prompt":"Review a platform proposal that standardizes all workloads on one engine.","requires":["workload fit","isolation","exit boundary"],"forbids":["uniformity as goal"]},
+    {"id":"PLT-04","domain":"platform_finops","workflow":"MODERNIZE","prompt":"Replatform a hybrid on-prem and cloud estate with limited egress.","requires":["network capacity","data gravity","phases"],"forbids":["cloud-only assumption"]},
+
+    {"id":"AID-01","domain":"ml_ai_data","workflow":"DESIGN","prompt":"Design point-in-time-correct training features and online serving.","requires":["event time","training-serving parity","lineage"],"forbids":["future leakage"]},
+    {"id":"AID-02","domain":"ml_ai_data","workflow":"OPERATE","prompt":"A new embedding model caused retrieval quality and cost regressions.","requires":["versioning","evaluation","rollback","cost"],"forbids":["reindex production immediately"]},
+    {"id":"AID-03","domain":"ml_ai_data","workflow":"REVIEW","prompt":"Review RAG ingestion that cannot delete a subject from derived chunks.","requires":["deletion lineage","chunk identity"],"forbids":["vector store exemption"]},
+    {"id":"AID-04","domain":"ml_ai_data","workflow":"MODERNIZE","prompt":"Migrate a feature store without changing model predictions.","requires":["point-in-time parity","dual read","rollback"],"forbids":["schema comparison only"]}
+  ]
+}

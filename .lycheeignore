@@ -1,4 +1,4 @@
-# Non-routable examples in playbooks and fixtures
+# Non-routable examples in fixtures
 https://schema-registry
 http://schema-registry
 http://vault

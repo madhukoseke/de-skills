@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "evaluatedAt", "contract", "models", "arms", "activation", "metrics", "passed", "limitations"],
+  "properties": {
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "evaluatedAt": {"type": "string", "format": "date"},
+    "contract": {"const": "tests/benchmark/contract/v4.json"},
+    "models": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["provider", "model"], "properties": {"provider": {"type": "string"}, "model": {"type": "string"}}}},
+    "arms": {"type": "array", "minItems": 3, "items": {"enum": ["v6", "v5", "no_skill"]}, "uniqueItems": true},
+    "activation": {"type": "object", "required": ["precision", "recall"], "properties": {"precision": {"type": "number"}, "recall": {"type": "number"}}},
+    "metrics": {"type": "object", "required": ["critical_failures", "deterministic_pass_rate", "expert_score", "improvement_points", "median_references", "bounded_token_multiplier"], "properties": {"critical_failures": {"type": "integer"}, "deterministic_pass_rate": {"type": "number"}, "expert_score": {"type": "number"}, "improvement_points": {"type": "number"}, "median_references": {"type": "number"}, "bounded_token_multiplier": {"type": "number"}}},
+    "passed": {"const": true},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -1,34 +1,28 @@
 # AGENTS.md
 
-This repository contains a vendor-neutral agent skill package for data engineering workflows.
+This repository contains one vendor-neutral data-engineering agent skill.
 
-## Canonical Source
+## Canonical source
 
-- `skills/data-engineering-best-practices/SKILL.md` is the source of truth.
-- `playbooks/` and `templates/` elaborate on the canonical contract.
-- `agents/` contains thin product-specific adapter metadata derived from the canonical skill.
+- `skills/data-engineering/SKILL.md` defines behavior and routing.
+- `skills/data-engineering/references/` contains progressively disclosed domain knowledge.
+- `skills/data-engineering/assets/` contains reusable output forms and schemas.
+- `skills/data-engineering/scripts/` contains deterministic, non-production utilities.
+- `integrations/` contains dated provider metadata and bundle composition profiles.
 
-## Working Rules
-
-- Keep `SKILL.md`, playbooks, and templates vendor-neutral.
-- Put provider-specific behavior in adapter files such as `skills/data-engineering-best-practices/agents/openai.yaml` or repo-level agent docs.
-- If you change modes, principles, playbook paths, or template paths, update all references in `SKILL.md`, docs, and validation scripts together.
-- Regenerate adapter artifacts after changing the canonical skill or provider metadata.
+Keep the canonical package vendor-neutral. When workflows, principles, reference
+paths, or schemas change, update direct links, evaluation contracts, and generated
+bundles together. Do not duplicate authoritative rule text in repository docs.
 
 ## Validation
 
-Run these from repo root before shipping changes:
+Run from repository root:
 
 ```bash
-python3 -m pip install -r tests/requirements.txt   # one-time, for jsonschema + PyYAML
-python3 tests/validate_vendor_neutrality.py
-python3 tests/validate_skill_structure.py
-python3 scripts/build_adapters.py --check
-python3 tests/validate_adapters.py
-python3 tests/validate_provider_fixtures.py
-python3 tests/validate_json_responses.py
-python3 tests/validate_release_package.py
-python3 -m py_compile examples/*.py examples/airflow/*.py tests/benchmark/live/providers/*.py
+python3 -m pip install -r tests/requirements.txt
+python3 scripts/build_bundles.py
 tests/run_e2e_harness.sh
-tests/benchmark/run_skill_vs_no_skill.sh
+python3 scripts/build_bundles.py --check
+python3 scripts/package_release.py --out-dir /tmp/de-skills-release
+python3 tests/validate_release_package.py --release-dir /tmp/de-skills-release
 ```

@@ -1,62 +1,12 @@
-# Live Benchmark (Contract On/Off)
+# Live evaluation
 
-This folder runs a live benchmark using the same prompts and same model in two modes:
+`run_live_benchmark.py` executes benchmark v4 prompts against v6, the immutable
+v5 Git baseline, and no skill using the same provider and model. Full Git history
+must be available. API keys and model IDs are supplied by
+the operator; current examples and verification dates are in
+`integrations/providers.yaml`.
 
-1. with canonical contract loaded
-2. without contract (generic assistant baseline)
-
-## Inputs
-
-- Prompt suite: `prompts_v3.json`
-- Contract source: `skills/data-engineering-best-practices/SKILL.md`
-- Contract: `tests/benchmark/contract/v3.json`
-
-## Run
-
-```bash
-tests/benchmark/live/run_live_benchmark.sh
-```
-
-Requires:
-- `OPENAI_API_KEY`
-- optional `OPENAI_MODEL` (default: `gpt-5`)
-- optional `BENCHMARK_PROVIDER` (default: `openai`)
-- optional `BENCHMARK_MODEL` to override the provider-specific model env var
-- optional `BENCHMARK_API_KEY` to override the provider-specific API key env var
-- optional `BENCHMARK_DRY_RUN=1` to exercise the full wrapper without making API calls
-
-Supported live providers:
-
-- `openai`: set `BENCHMARK_PROVIDER=openai`, `OPENAI_API_KEY`, optionally `OPENAI_MODEL`
-- `anthropic`: set `BENCHMARK_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, and either `ANTHROPIC_MODEL` or `BENCHMARK_MODEL`
-- `gemini`: set `BENCHMARK_PROVIDER=gemini`, `GEMINI_API_KEY`, and either `GEMINI_MODEL` or `BENCHMARK_MODEL`
-
-The scheduled GitHub smoke workflow reads `ANTHROPIC_MODEL`, `GEMINI_MODEL`, and optional
-`OPENAI_MODEL` from repository variables. Anthropic and Gemini smoke jobs skip cleanly when
-the model variable is not configured.
-
-Dry-run example:
-
-```bash
-BENCHMARK_PROVIDER=anthropic BENCHMARK_MODEL=claude-test BENCHMARK_DRY_RUN=1 \
-  tests/benchmark/live/run_live_benchmark.sh
-```
-
-Dry-run mode exercises provider selection and artifact wiring, then exits before validator and benchmark scoring.
-
-Provider metadata is versioned in `tests/benchmark/live/provider_matrix.json`.
-
-## Outputs
-
-Per run:
-
-- `tests/benchmark/live_runs/<timestamp>/with_skill/*.md`
-- `tests/benchmark/live_runs/<timestamp>/no_skill/*.md`
-- `tests/benchmark/live_runs/<timestamp>/results/comparison.json`
-- `tests/benchmark/live_runs/<timestamp>/skill_vs_no_skill_report.md`
-
-## Notes
-
-- Use this for real model comparison to reduce synthetic-baseline bias.
-- Keep prompts and contract version aligned (`prompts_v3` with `contract/v3.json`).
-- Keep provider-specific transport logic out of the contract itself.
+Live outputs are evidence inputs, not self-certifying scores. Convert blinded
+grader and deterministic results to the JSONL fields accepted by `score_v4.py`,
+then compare v6, v5, and no-skill runs. Never commit credentials or raw sensitive
+prompt content.

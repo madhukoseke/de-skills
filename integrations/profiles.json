@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "skill": "data-engineering",
+  "profiles": {
+    "core": [],
+    "architecture": ["architecture-and-requirements", "storage-and-table-formats", "contracts-quality-and-testing"],
+    "batch": ["ingestion-and-source-systems", "transformation-and-compute", "orchestration-and-delivery"],
+    "streaming": ["ingestion-and-source-systems", "streaming-and-distributed-systems", "reliability-observability-and-operations"],
+    "analytics": ["transformation-and-compute", "modeling-and-serving", "contracts-quality-and-testing"],
+    "reliability": ["contracts-quality-and-testing", "orchestration-and-delivery", "reliability-observability-and-operations"],
+    "governance": ["contracts-quality-and-testing", "governance-security-and-lifecycle", "reliability-observability-and-operations"],
+    "platform": ["architecture-and-requirements", "platform-engineering-and-finops", "governance-security-and-lifecycle"],
+    "ml-ai": ["ml-and-ai-data-systems", "contracts-quality-and-testing", "governance-security-and-lifecycle"],
+    "full": ["architecture-and-requirements", "ingestion-and-source-systems", "storage-and-table-formats", "transformation-and-compute", "streaming-and-distributed-systems", "modeling-and-serving", "contracts-quality-and-testing", "orchestration-and-delivery", "reliability-observability-and-operations", "governance-security-and-lifecycle", "platform-engineering-and-finops", "ml-and-ai-data-systems", "foundations-and-sources"]
+  }
+}

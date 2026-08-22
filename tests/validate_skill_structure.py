@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate canonical SKILL.md structure: modes, inputs, templates, principles, frontmatter."""
+"""Validate v6 package structure and progressive-disclosure invariants."""
 
 from __future__ import annotations
 
@@ -7,218 +7,75 @@ import re
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
-SKILL = ROOT / "skills" / "data-engineering-best-practices" / "SKILL.md"
-README = ROOT / "README.md"
+SKILL_DIR = ROOT / "skills" / "data-engineering"
+SKILL = SKILL_DIR / "SKILL.md"
+EXPECTED_WORKFLOWS = ["GUIDE", "DESIGN", "BUILD", "REVIEW", "OPERATE", "MODERNIZE"]
 
 
-def die(msg: str) -> None:
-    print(f"ERROR: {msg}", file=sys.stderr)
-    sys.exit(1)
+def fail(message: str) -> None:
+    print(f"ERROR: {message}", file=sys.stderr)
+    raise SystemExit(1)
 
 
-def parse_frontmatter(raw: str) -> dict[str, str]:
-    if not raw.startswith("---"):
-        die("SKILL.md must start with YAML frontmatter (---)")
-    m = re.match(r"^---\n(.*?)\n---\n", raw, re.DOTALL)
-    if not m:
-        die("SKILL.md frontmatter missing closing ---")
-    block = m.group(1)
-    out: dict[str, str] = {}
-    for line in block.splitlines():
-        if line.startswith("name:"):
-            out["name"] = line.split(":", 1)[1].strip()
-        elif line.startswith("description:"):
-            out["description"] = line  # multi-line handled loosely below
-        elif line.strip().startswith("version:"):
-            out["version"] = line.split(":", 1)[1].strip().strip('"')
-    if "name" not in out or not out["name"]:
-        die("Frontmatter must set non-empty name:")
-    if "version" not in out or not out["version"]:
-        die("Frontmatter metadata must set version:")
-    if "description:" not in block:
-        die("Frontmatter must include description:")
-    return out
-
-
-def modes_from_table(raw: str) -> list[str]:
-    """Modes declared in the Operating Modes markdown table (| **MODE** |)."""
-    in_table = False
-    modes: list[str] = []
-    for line in raw.splitlines():
-        if line.strip().startswith("| Mode |"):
-            in_table = True
+def frontmatter(raw: str) -> dict[str, str]:
+    match = re.match(r"^---\n(.*?)\n---\n", raw, re.DOTALL)
+    if not match:
+        fail("SKILL.md needs valid YAML frontmatter")
+    fields: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        if not line.strip():
             continue
-        if in_table:
-            if not line.strip().startswith("|"):
-                break
-            if re.match(r"^\|\s*-+", line):
-                continue
-            m = re.match(r"^\|\s*\*\*([A-Z_]+)\*\*\s*\|", line)
-            if m:
-                modes.append(m.group(1))
-    if not modes:
-        die("Could not parse any modes from Operating Modes table")
-    return modes
+        if ":" not in line:
+            fail(f"unsupported multiline frontmatter: {line}")
+        key, value = line.split(":", 1)
+        fields[key.strip()] = value.strip()
+    if set(fields) != {"name", "description"}:
+        fail(f"frontmatter fields must be name and description only; got {sorted(fields)}")
+    if fields["name"] != SKILL_DIR.name or not re.fullmatch(r"[a-z0-9-]{1,64}", fields["name"]):
+        fail("frontmatter name must match skills/data-engineering and specification syntax")
+    if not fields["description"] or len(fields["description"]) > 1024:
+        fail("description must contain 1..1024 characters")
+    return fields
 
 
-def input_section_modes(raw: str) -> set[str]:
-    """Modes that have a ### <MODE> mode subsection under Inputs to Collect."""
-    section = False
-    modes: set[str] = set()
-    for line in raw.splitlines():
-        if line.strip() == "## Inputs to Collect":
-            section = True
-            continue
-        if section and line.startswith("## ") and line != "## Inputs to Collect":
-            break
-        if section:
-            m = re.match(r"^### ([A-Z_]+) mode\s*$", line)
-            if m:
-                modes.add(m.group(1))
-    return modes
-
-
-def principles_from_skill(raw: str) -> int:
-    text = raw
-    start = text.find("## Non-Negotiable Principles")
-    if start == -1:
-        die("SKILL.md missing ## Non-Negotiable Principles")
-    chunk = text[start : start + 8000]
-    matches = re.findall(r"(?m)^(\d+)\. \*\*\(W(\d{3})\)", chunk)
-    if not matches:
-        die("Principles must be tagged with stable IDs in the form '(W0NN)' (e.g., '(W001)')")
-    expected = list(range(1, len(matches) + 1))
-    actual_numbers = [int(num) for num, _id in matches]
-    actual_ids = [int(pid) for _num, pid in matches]
-    if actual_numbers != expected:
-        die(f"Principle list-numbers must run 1..N contiguously; got {actual_numbers}")
-    if actual_ids != expected:
-        die(
-            f"Principle IDs must run W001..W{len(matches):03d} contiguously; "
-            f"got W{', W'.join(f'{p:03d}' for p in actual_ids)}"
-        )
-    return len(matches)
-
-
-def validate_readme_principles(raw: str, expected_skill_principles: int) -> None:
-    """README either lists the same numbered principles as SKILL or points to SKILL.md."""
-    start = raw.find("## Principles")
-    if start == -1:
-        die("README.md missing ## Principles")
-    chunk = raw[start : start + 4000]
-    numbered = len(re.findall(r"(?m)^\d+\. \*\*", chunk))
-    if numbered > 0:
-        if numbered != expected_skill_principles:
-            die(
-                f"Principle count mismatch: SKILL.md has {expected_skill_principles} numbered "
-                f"principles, README.md has {numbered}"
-            )
-        return
-    # Short README: must link to canonical SKILL and mention twelve principles there.
-    if "skills/data-engineering-best-practices/SKILL.md" not in chunk:
-        die(
-            "README ## Principles must either list numbered principles or link to "
-            "skills/data-engineering-best-practices/SKILL.md"
-        )
-    low = chunk.lower()
-    if "twelve" not in low and "12" not in low:
-        die("README ## Principles (summary mode) must mention twelve/12 principles")
-    if "principle" not in low:
-        die("README ## Principles (summary mode) must mention principles")
-
-
-def template_rows(raw: str) -> list[tuple[str, str]]:
-    """List of (template_path, used_by_cell) from Template Index."""
-    start = raw.find("## Template Index")
-    if start == -1:
-        die("SKILL.md missing ## Template Index")
-    rest = raw[start:]
-    end = rest.find("\n## ", 1)
-    chunk = rest if end == -1 else rest[:end]
-    rows: list[tuple[str, str]] = []
-    for line in chunk.splitlines():
-        if "[templates/" not in line or re.match(r"^\|\s*-", line):
-            continue
-        parts = [p.strip() for p in line.split("|")]
-        if len(parts) < 4:
-            continue
-        link_cell = parts[2]
-        used_by = parts[3]
-        m = re.search(r"\(templates/([^)]+)\)", link_cell)
-        if not m:
-            continue
-        path = f"templates/{m.group(1)}"
-        rows.append((path, used_by))
-    if not rows:
-        die("Could not parse Template Index rows")
-    return rows
-
-
-def parse_used_by_modes(cell: str, all_modes: set[str]) -> set[str] | None:
-    cell = cell.strip()
-    if cell.lower().startswith("all modes"):
-        return None
-    parts = re.split(r"[,/]", cell)
-    out: set[str] = set()
-    for p in parts:
-        token = p.strip()
-        token = re.sub(r"\s*\([^)]*\)\s*", "", token)
-        if not token:
-            continue
-        if token in all_modes:
-            out.add(token)
-    return out
-
-
-def main() -> None:
-    skill_raw = SKILL.read_text(encoding="utf-8")
-    readme_raw = README.read_text(encoding="utf-8")
-
-    fm = parse_frontmatter(skill_raw)
-    print(f"Frontmatter OK: name={fm['name']!r} version={fm['version']!r}")
-
-    modes = modes_from_table(skill_raw)
-    mode_set = set(modes)
-    print(f"Modes from table ({len(modes)}): {', '.join(modes)}")
-
-    input_modes = input_section_modes(skill_raw)
-    missing_inputs = mode_set - input_modes
-    if missing_inputs:
-        die(f"Modes missing '### <MODE> mode' under Inputs to Collect: {sorted(missing_inputs)}")
-
-    extra_inputs = input_modes - mode_set
-    if extra_inputs:
-        die(f"Input sections for unknown modes: {sorted(extra_inputs)}")
-
-    p_skill = principles_from_skill(skill_raw)
-    validate_readme_principles(readme_raw, p_skill)
-    print(f"Principles OK: {p_skill} in SKILL.md; README aligned")
-
-    rows = template_rows(skill_raw)
-    for path, used_by in rows:
-        full = SKILL.parent / path
-        if not full.is_file():
-            die(f"Template Index references missing file: {path}")
-
-    for path, used_by in rows:
-        referenced = parse_used_by_modes(used_by, mode_set)
-        if referenced is None:
-            continue
-        if not referenced:
-            unknown = [t.strip() for t in re.split(r"[,/]", used_by) if t.strip()]
-            die(
-                f"Template {path}: could not map Used By to known modes: {used_by!r} "
-                f"(tokens={unknown})"
-            )
-        bad = referenced - mode_set
-        if bad:
-            die(f"Template {path}: unknown modes in Used By: {sorted(bad)}")
-
-    print(f"Template Index OK ({len(rows)} templates, Used By modes validated)")
-    print("validate_skill_structure: all checks passed")
+def main() -> int:
+    raw = SKILL.read_text(encoding="utf-8")
+    fm = frontmatter(raw)
+    if len(raw.splitlines()) >= 300:
+        fail("SKILL.md must remain below 300 lines")
+    if len(re.findall(r"\S+", raw)) >= 4000:
+        fail("SKILL.md must remain below 4,000 whitespace-delimited tokens")
+    workflows = re.findall(r"^\| `([A-Z]+)` \|", raw, re.MULTILINE)
+    if workflows != EXPECTED_WORKFLOWS:
+        fail(f"workflow table mismatch: {workflows}")
+    for prefix, expected in (("G", 8), ("P", 6)):
+        ids = re.findall(rf"\*\*{prefix}(\d{{3}}) —", raw)
+        wanted = [f"{value:03d}" for value in range(1, expected + 1)]
+        if ids != wanted:
+            fail(f"{prefix} IDs must be contiguous: expected {wanted}, got {ids}")
+    references = re.findall(r"\]\(references/([a-z0-9-]+\.md)\)", raw)
+    if len(references) != 13 or len(set(references)) != 13:
+        fail("SKILL.md must directly route exactly 13 unique lifecycle references")
+    actual_references = {path.name for path in (SKILL_DIR / "references").glob("*.md")}
+    if set(references) != actual_references:
+        fail(f"reference index drift: routed={sorted(references)}, actual={sorted(actual_references)}")
+    for name in references:
+        ref = SKILL_DIR / "references" / name
+        lines = ref.read_text(encoding="utf-8").splitlines()
+        if len(lines) > 100 and not any(line.strip().lower() == "## contents" for line in lines):
+            fail(f"reference over 100 lines requires ## Contents: {name}")
+        if re.search(r"\]\((?:\.\./)?references/", ref.read_text(encoding="utf-8")):
+            fail(f"references must not create a nested reference graph: {name}")
+    assets = set(re.findall(r"\]\(assets/([A-Za-z0-9._-]+)\)", raw))
+    missing_assets = [name for name in assets if not (SKILL_DIR / "assets" / name).is_file()]
+    if missing_assets:
+        fail(f"missing routed assets: {missing_assets}")
+    if "playbooks/" in raw or "templates/" in raw or "Operating Modes" in raw:
+        fail("v5 vocabulary or paths leaked into canonical contract")
+    print(f"Skill structure passed: {fm['name']}, {len(raw.splitlines())} lines, 6 workflows, 13 references.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

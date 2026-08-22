@@ -1,0 +1,19 @@
+apiVersion: v3.1.0
+kind: DataContract
+id: urn:datacontract:orders
+version: 1.0.0
+status: active
+name: Orders
+description:
+  purpose: Curated order facts for finance reporting.
+schema:
+  - name: orders
+    physicalType: table
+    properties:
+      - name: order_id
+        logicalType: string
+        required: true
+        primaryKey: true
+      - name: order_total
+        logicalType: decimal
+        required: true

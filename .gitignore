@@ -20,7 +20,6 @@ venv/
 
 # Benchmark-generated artifacts
 tests/benchmark/results/
-tests/benchmark/skill_vs_no_skill_report.md
 tests/benchmark/live_runs/
 release-artifacts/
 

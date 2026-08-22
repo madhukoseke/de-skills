@@ -1,5 +1,5 @@
 name: "Bug Report"
-description: "Report incorrect, outdated, or misleading guidance in a playbook, template, or the skill behavior"
+description: "Report incorrect, outdated, or unsafe skill behavior, references, assets, utilities, or evaluations"
 title: "[Bug] "
 labels:
   - "bug"
@@ -10,9 +10,11 @@ body:
       label: "Which component has the issue?"
       options:
         - "SKILL.md"
-        - "Playbook (specify below)"
-        - "Template (specify below)"
-        - "CI/Test harness"
+        - "Reference"
+        - "Asset or schema"
+        - "Utility"
+        - "Evaluation or test harness"
+        - "Integration profile"
         - "Other"
     validations:
       required: true
@@ -21,7 +23,7 @@ body:
     id: specific_file
     attributes:
       label: "Which specific file?"
-      placeholder: "e.g. playbooks/05_data_quality.md"
+      placeholder: "e.g. references/contracts-quality-and-testing.md"
     validations:
       required: false
 

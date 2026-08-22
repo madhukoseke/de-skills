@@ -1,0 +1,8 @@
+version: 2
+models:
+  - name: customers
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: email
+        description: Published column removed by the SQL rename.

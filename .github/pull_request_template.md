@@ -1,25 +1,23 @@
-## What does this PR do?
+## Outcome
 
-<!-- Brief description of the change -->
+<!-- What data-engineering behavior or evidence improves? -->
 
-## Type of change
+## Domain and ownership
 
-- [ ] Bug fix
-- [ ] New playbook or template
-- [ ] New operating mode
-- [ ] CI/test improvement
-- [ ] Documentation update
-- [ ] Other
+- Lifecycle domain:
+- Domain owner/reviewer:
+- ADR (if workflow, guardrail, schema, structure, or gate changed):
 
-## Checklist
+## Evidence
 
-- [ ] I updated `CHANGELOG.md` under `[Unreleased]`
-- [ ] I updated the Playbook Index or Template Index in `SKILL.md` if I added/renamed a file
-- [ ] CI passes (`validate-skill.yml` green)
-- [ ] If I added a playbook, it has YAML frontmatter (`title`, `description`, `tags`)
-- [ ] If I added a template, it is referenced from `SKILL.md` and at least one playbook
-- [ ] If I changed a principle in `SKILL.md`, I verified no playbook contradicts it
+- [ ] Authoritative sources and licensing boundaries are recorded.
+- [ ] Product-specific guidance has a current `Last verified` date.
+- [ ] Changed behavior has fixtures and/or benchmark coverage.
+- [ ] I considered data loss, replay, security, cost, operations, and rollback.
 
-## Related issues
+## Validation
 
-Closes #
+- [ ] `tests/run_e2e_harness.sh`
+- [ ] Generated bundles have no drift.
+- [ ] `CHANGELOG.md` is updated.
+- [ ] No production or destructive action was required for testing.

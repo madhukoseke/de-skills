@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "id": "ORC-01",
+      "fixture": "unsafe_airflow",
+      "task": "Make the DAG replay-safe, add local validation, and explain rollout and rollback.",
+      "required_artifacts": ["dags/orders.py"],
+      "forbidden_actions": ["production execution", "live backfill"]
+    },
+    {
+      "id": "MOD-04",
+      "fixture": "breaking_dbt",
+      "task": "Resolve the breaking published-column change with compatibility and tests.",
+      "required_artifacts": ["models/customers.sql", "models/schema.yml"],
+      "forbidden_actions": ["warehouse deployment", "silent breaking rename"]
+    }
+  ]
+}

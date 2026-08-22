@@ -1,0 +1,7 @@
+{
+  "name": "v5",
+  "version": "5.0.0",
+  "git_revision": "d4b5c3e4bbaa68818bb5cf10220706359007730b",
+  "skill_path": "skills/data-engineering-best-practices/SKILL.md",
+  "note": "Immutable pre-v6 repository snapshot used only as a comparative baseline."
+}

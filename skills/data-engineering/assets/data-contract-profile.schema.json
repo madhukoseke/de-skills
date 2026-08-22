@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/madhukoseke/de-skills/skills/data-engineering/assets/data-contract-profile.schema.json",
+  "title": "de-skills ODCS 3.1.0 profile",
+  "description": "Repository-authored validation profile for the ODCS 3.1.0 fields used by the bundled template. The normative ODCS specification takes precedence.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "id", "version", "status", "schema"],
+  "properties": {
+    "apiVersion": {"const": "v3.1.0"},
+    "kind": {"const": "DataContract"},
+    "id": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$"},
+    "status": {"type": "string", "enum": ["proposed", "draft", "active", "deprecated", "retired"]},
+    "domain": {"type": "string"},
+    "description": {
+      "type": "object",
+      "properties": {
+        "purpose": {"type": "string"},
+        "limitations": {"type": "string"},
+        "usage": {"type": "string"}
+      }
+    },
+    "tags": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "schema": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "properties"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "physicalType": {"type": "string"},
+          "logicalType": {"type": "string"},
+          "description": {"type": "string"},
+          "dataGranularityDescription": {"type": "string"},
+          "properties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["name", "logicalType"],
+              "properties": {
+                "name": {"type": "string", "minLength": 1},
+                "logicalType": {"type": "string", "minLength": 1},
+                "physicalType": {"type": "string"},
+                "required": {"type": "boolean"},
+                "primaryKey": {"type": "boolean"},
+                "unique": {"type": "boolean"},
+                "description": {"type": "string"},
+                "classification": {"type": "string"},
+                "quality": {"type": "array"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "support": {"type": "array"},
+    "team": {"type": "array"},
+    "roles": {"type": "array"},
+    "servicelevels": {"type": "array"},
+    "servers": {"type": "array"},
+    "customProperties": {"type": "array"}
+  }
+}

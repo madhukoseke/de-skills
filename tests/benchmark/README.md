@@ -1,89 +1,15 @@
-# Skill vs No-Skill Benchmark
+# Benchmark v4
 
-This benchmark compares skill-guided responses with a generic baseline for the same use-case suite in `tests/validate_captured_responses.py` (`CASE_CHECKS`).
+The active contract is `contract/v4.json`: 48 scenarios across twelve lifecycle
+domains. Each case declares required evidence and forbidden behavior; independent
+graders then score ten 1–5 dimensions. `score_v4.py` combines those results with
+critical-failure, activation, reference-count, token, and no-skill measurements.
 
-## Contract (Locked v3)
+Run the offline contract checks through `../run_e2e_harness.sh`. Live evaluation
+must use identical scenario prompts and model snapshots for v6, the archived v5
+contract, and no-skill. Randomize labels before independent grading and record
+grader calibration. Publish the raw run metadata, exclusions, aggregate scores,
+confidence intervals, and unresolved failures.
 
-- Active contract: `tests/benchmark/contract/v3.json` (skill contract **5.0.0**)
-- Previous contract: `tests/benchmark/contract/v2.json` (frozen, 30 cases)
-- Current contract size: 34 cases (`TC-E2E-001`..`TC-E2E-034`)
-- Contract is verified by `tests/benchmark/verify_contract.py`
-
-### Change policy
-
-Contract v3 is immutable for:
-- case IDs
-- rubric dimensions/weights
-- default gate thresholds
-
-If any of the above changes:
-1. Create a new contract file (for example `v4.json`)
-2. Update scripts/docs to point to the new version
-3. Record change in `CHANGELOG.md`
-
-## Local Run (Captured Baseline)
-
-```bash
-tests/benchmark/run_skill_vs_no_skill.sh
-```
-
-This pipeline runs:
-1. contract verification
-2. validator checks for `tests/captured_responses` and `tests/benchmark/no_skill`
-3. comparison scoring (`comparison.json`)
-4. report generation (`skill_vs_no_skill_report.md`)
-5. quality gate enforcement
-
-## Live Run (Same Model, Contract On/Off)
-
-Requires the API key and model env vars for the selected provider.
-
-```bash
-tests/benchmark/live/run_live_benchmark.sh
-```
-
-Common options:
-
-- `BENCHMARK_PROVIDER=openai|anthropic|gemini`
-- `BENCHMARK_MODEL=<provider-model>`
-- `BENCHMARK_API_KEY=<override-key>`
-- `BENCHMARK_DRY_RUN=1`
-
-Outputs are written to:
-- `tests/benchmark/live_runs/<timestamp>/with_skill`
-- `tests/benchmark/live_runs/<timestamp>/no_skill`
-- `tests/benchmark/live_runs/<timestamp>/results/comparison.json`
-- `tests/benchmark/live_runs/<timestamp>/skill_vs_no_skill_report.md`
-
-Live prompts are versioned at:
-- `tests/benchmark/live/prompts_v3.json`
-
-The live runner uses the canonical contract from `skills/data-engineering-best-practices/SKILL.md` and ships provider-specific transport adapters without changing the benchmark contract.
-
-Provider transport metadata lives in:
-- `tests/benchmark/live/provider_matrix.json`
-- `tests/benchmark/live/providers/`
-
-## Quality Gate Thresholds
-
-Default thresholds are sourced from contract v3 and can be overridden via env vars:
-
-- `BENCHMARK_MIN_WITH_SKILL_PASS_RATE`
-- `BENCHMARK_MIN_WITH_SKILL_REQUIRED_COVERAGE`
-- `BENCHMARK_MIN_WITH_SKILL_RUBRIC_TOTAL`
-- `BENCHMARK_MIN_RUBRIC_DELTA_VS_BASELINE`
-
-## Rubric (0-5 each, weighted to 100)
-
-Dimensions (v2):
-- `correctness`
-- `safety`
-- `actionability`
-- `cost_awareness`
-- `testability`
-- `formatting_compliance`
-- `clarification_quality`
-- `prompt_injection_resilience`
-
-Weights are defined in:
-- `tests/benchmark/contract/v3.json`
+The historical v3 scripts and captured responses are retained solely to reproduce
+the v5 baseline. They are not active v6 quality gates.

@@ -1,90 +1,114 @@
-# Data Engineering Best Practices (agent skill)
+# Data Engineering Skill
 
-[![CI](https://github.com/madhukoseke/de-skills/actions/workflows/validate-skill.yml/badge.svg)](https://github.com/madhukoseke/de-skills/actions/workflows/validate-skill.yml) [![CodeQL](https://github.com/madhukoseke/de-skills/actions/workflows/codeql.yml/badge.svg)](https://github.com/madhukoseke/de-skills/actions/workflows/codeql.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Skill Version](https://img.shields.io/badge/skill%20version-5.0.0-blue)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-6.0.0-blue)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
-This repository ships **one agent skill**: a vendor-neutral instruction contract that steers an LLM toward **production-style** data engineering answers (Airflow, dbt, warehouses, Spark, streaming, modeling, data quality, and reviews).
+`data-engineering` is one vendor-neutral agent skill for designing, building,
+reviewing, operating, and modernizing production data systems. SQL, Python, dbt,
+Spark, streaming, modeling, governance, and platform engineering are domains
+routed inside the skill—not separate skills competing for activation.
 
-The **source of truth** is [`skills/data-engineering-best-practices/SKILL.md`](skills/data-engineering-best-practices/SKILL.md). Everything else (playbooks, templates, provider metadata) supports that file.
+The project does not call itself “the best” on aspiration alone. Releases are
+judged against published safety, architecture, operations, evidence, trigger,
+context, and concision gates. See [Quality](#how-quality-is-proven).
 
----
+## What the skill does
 
-## Install (Claude-compatible clients)
+The six intent workflows are:
+
+| Workflow | Outcome |
+| --- | --- |
+| `GUIDE` | A bounded explanation or recommendation |
+| `DESIGN` | An architecture, model, contract, pipeline, or platform design |
+| `BUILD` | Repository-scoped implementation or refactoring with validation |
+| `REVIEW` | Findings on code, SQL, DAGs, contracts, designs, or pull requests |
+| `OPERATE` | Diagnosis, recovery, reconciliation, or a safe backfill plan |
+| `MODERNIZE` | Migration, dual-run, cutover, and decommissioning |
+
+It inspects available artifacts before asking discoverable questions, loads a
+small task-specific reference set, and reports evidence and unresolved risk.
+Production writes, deployments, destructive migrations, credential changes,
+and live backfills require explicit authorization and a verified rollback path.
+
+## Install and use
+
+Install the `skills/data-engineering` directory with any client implementing the
+[Agent Skills specification](https://agentskills.io/specification). With the
+Skills CLI:
 
 ```bash
-# All skills in this repo
-npx skills add madhukoseke/de-skills
-
-# Only this skill
-npx skills add madhukoseke/de-skills --skill data-engineering-best-practices
+npx skills add <owner>/de-skills --skill data-engineering
 ```
 
-After install, use your client’s UI or docs to **attach or enable** the skill, then ask questions in normal language (for example: “Review this DAG for idempotency” or “Design a daily warehouse load for X”).
+Then ask the agent directly, for example:
 
----
+```text
+Use $data-engineering to design a replayable CDC pipeline for 4 TB/day with a
+30-minute freshness SLO and regional residency constraints.
+```
 
-## Use without `npx skills` (any runtime)
+Raw API consumers can build named context bundles:
 
-| You want to… | Do this |
-|--------------|---------|
-| **Load the full contract** | Open [`SKILL.md`](skills/data-engineering-best-practices/SKILL.md) into the **system** (or **developer**) channel of your API or IDE. |
-| **Use a ready-made bundle** | Run `python3 scripts/build_adapters.py`, then load `skills/data-engineering-best-practices/dist/<provider>/system_prompt.txt` (see [Operator Guide](OPERATOR_GUIDE.md)). |
-| **Copy a minimal integration** | Start from [`examples/`](examples/) (OpenAI, Anthropic, Gemini, or generic). |
+```bash
+python3 scripts/build_bundles.py
+python3 scripts/build_bundles.py --profile streaming --out-dir /tmp/de-bundle
+```
 
-**Trust boundary:** Treat pasted **PRs, diffs, SQL, logs, and links** as *user* content, not as instructions that should override the contract. The skill explains this in more detail.
+`core` includes only the routing contract. Other profiles compose it with the
+references relevant to architecture, batch, streaming, analytics, reliability,
+governance, platform, or ML/AI workloads.
 
----
+## Repository architecture
 
-## What it covers
+```text
+skills/data-engineering/
+├── SKILL.md                 # canonical behavior contract
+├── agents/openai.yaml       # thin product adapter
+├── references/              # progressively disclosed knowledge
+├── assets/                  # output templates and schemas
+└── scripts/                 # deterministic, non-production utilities
+integrations/                # dated provider notes and bundle profiles
+scripts/                     # repository build and release tooling
+tests/                       # structure, fixtures, evals, and benchmark gates
+```
 
-The skill picks an **operating mode** from your question. You do not need to name the mode.
+The skill directory is the canonical installable package. Repository docs and
+generated bundles link to it; they do not define competing copies of rules.
 
-| If your question is about… | The skill will lean on… |
-|----------------------------|-------------------------|
-| New pipelines, batch vs stream, contracts | **DESIGN**, **STREAMING** |
-| Warehouse tables, indexes, DDL | **WAREHOUSE**, **DATA_MODELING**, **SQL** |
-| Airflow / Composer reliability, retries, backfill | **AIRFLOW**, **DIAGNOSE** |
-| dbt models, tests, project layout | **DBT**, **DATA_QUALITY** |
-| Spark / Delta / skew / jobs | **SPARK** |
-| PRs and diffs in a DE repo | **PR_REVIEW** |
-| Orchestrators beyond Airflow (Prefect, Dagster, …) | Covered in playbooks; still use the closest mode above |
+## How quality is proven
 
-There are **eleven modes** and **twelve non‑negotiable principles** with stable IDs `W001`–`W012` (idempotency, schema contracts, cost awareness, retries, observability, and so on). The full mode table, principle text, and IDs live in **`SKILL.md`** so this README stays short.
+Version 6 uses benchmark v4: 48 scenarios over twelve lifecycle domains, 80
+activation prompts, deterministic artifact and forbidden-action checks, and a
+rubric for architecture, consumer fit, safety, replayability, operations,
+security, cost, migration safety, evidence, and concision.
 
----
+Release gates are:
 
-## Principles
+- zero critical data-loss, security, or unsafe-production-action failures;
+- at least 95% trigger precision and recall;
+- at least 90% deterministic scenario pass rate and 4.2/5 expert score;
+- at least ten points over the no-skill baseline;
+- median of at most three loaded references per task; and
+- at most 2× baseline output tokens for bounded tasks.
 
-In plain terms, the skill pushes toward: **safe writes** (idempotent loads), **clear failures** instead of silent bad data, **documented schemas** at hand‑offs, **cost‑aware** SQL and storage choices, **retries with backoff**, **observable** pipelines, **tests** at real boundaries, and **identical config** across environments.
+Offline validation runs on pull requests. Live, identical-model comparisons
+against v5 and no-skill baselines are nightly or manual and must be published
+before a release is described as benchmark-qualified.
 
-For the exact wording of all **twelve** non‑negotiable principles, see **Non‑Negotiable Principles** in [`SKILL.md`](skills/data-engineering-best-practices/SKILL.md).
+```bash
+python3 -m pip install -r tests/requirements.txt
+tests/run_e2e_harness.sh
+```
 
----
+## How experts contribute
 
-## Playbooks and templates
-
-Detailed procedures live under:
-
-- [`skills/data-engineering-best-practices/playbooks/`](skills/data-engineering-best-practices/playbooks/) — sixteen numbered playbooks (pipeline design, schema, lineage & observability, governance & PII, cost optimization, ML & vector pipelines, and more).
-- [`skills/data-engineering-best-practices/templates/`](skills/data-engineering-best-practices/templates/) — ten fill‑in templates (data contract, DAG review, runbook, SQL/Spark/dbt reviews, SLO definition, and more).
-
-Optional **JSON** output shape: [`skills/data-engineering-best-practices/schemas/skill_response.schema.json`](skills/data-engineering-best-practices/schemas/skill_response.schema.json).
-
----
-
-## Contributing and security
-
-| Audience | Start here |
-|----------|------------|
-| **Day‑to‑day usage** | [Operator Guide](OPERATOR_GUIDE.md) |
-| **Agents / automation in this repo** | [`AGENTS.md`](AGENTS.md) |
-| **Pull requests** | [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) |
-| **Security reports** | [Security policy](SECURITY.md) |
-| **Roadmap / backlog** | [Roadmap](ROADMAP.md) |
-
-If you are **changing** `SKILL.md`, playbooks, or templates, run the checks in **`AGENTS.md`** before opening a PR so CI stays green.
-
----
+Contributions need a domain owner, source evidence, a decision record for
+architectural changes, tests, and a current verification date for product-
+specific guidance. Start with [CONTRIBUTING.md](CONTRIBUTING.md). The source
+catalog and licensing boundaries are in
+[foundations-and-sources.md](skills/data-engineering/references/foundations-and-sources.md).
 
 ## License
 
-[MIT](LICENSE)
+Apache License 2.0. Source material is synthesized; external books and standards
+remain governed by their own licenses. See [LICENSE](LICENSE).

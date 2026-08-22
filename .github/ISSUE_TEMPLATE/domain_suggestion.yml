@@ -1,0 +1,44 @@
+name: "Domain or Behavior Suggestion"
+description: "Propose lifecycle knowledge, workflow behavior, an asset, utility, or evaluation"
+title: "[Proposal] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: contribution_type
+    attributes:
+      label: Contribution type
+      options:
+        - "Reference guidance"
+        - "Workflow behavior"
+        - "Asset or schema"
+        - "Deterministic utility"
+        - "Benchmark or fixture"
+        - "Integration profile"
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Consumer outcome and lifecycle domain
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Authoritative sources or reproducible evidence
+      description: Include edition/version, URL, and review date when applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: decision_rule
+    attributes:
+      label: Decision rule, scope, and counterexamples
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: "I searched existing issues and references."
+        - label: "I can identify a domain owner or reviewer."
